@@ -1,0 +1,102 @@
+name: Verify and package STEADY
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - "v*"
+  pull_request:
+
+concurrency:
+  group: steady-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    name: Lint, test and build web bundle
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Unit and interaction tests
+        run: npm test
+
+      - name: Production web build
+        run: npm run build
+
+  package:
+    name: Package ${{ matrix.artifact }}
+    needs: verify
+    if: github.event_name != 'pull_request'
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            target: x86_64-pc-windows-msvc
+            bundles: nsis
+            artifact: steady-windows-x64
+            bundle_glob: src-tauri/target/x86_64-pc-windows-msvc/release/bundle/nsis/*.exe
+          - os: macos-15-intel
+            target: x86_64-apple-darwin
+            bundles: dmg
+            artifact: steady-macos-intel
+            bundle_glob: src-tauri/target/x86_64-apple-darwin/release/bundle/dmg/*.dmg
+          - os: macos-15
+            target: aarch64-apple-darwin
+            bundles: dmg
+            artifact: steady-macos-apple-silicon
+            bundle_glob: src-tauri/target/aarch64-apple-darwin/release/bundle/dmg/*.dmg
+    runs-on: ${{ matrix.os }}
+    env:
+      CI: true
+    steps:
+      - name: Check out
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Set up Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+
+      - name: Cache Rust build
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri -> target
+          key: ${{ matrix.target }}
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build native installer
+        run: npx tauri build --target ${{ matrix.target }} --bundles ${{ matrix.bundles }}
+
+      - name: Upload installer
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact }}
+          path: ${{ matrix.bundle_glob }}
+          if-no-files-found: error
+          retention-days: 14
