@@ -13,7 +13,13 @@ export function ConsistencyHeatmap({
   today: string;
 }) {
   const navigate = useNavigate();
-  const cells = buildConsistencyHeatmap(snapshot.meals, snapshot.offPlanDays, today);
+  const mealCount = snapshot.settings.mealsPerDay;
+  const cells = buildConsistencyHeatmap(
+    snapshot.meals,
+    snapshot.offPlanDays,
+    today,
+    mealCount,
+  );
 
   return (
     <section className="surface flex min-h-[252px] flex-col p-[22px]" aria-labelledby="consistency-title">
@@ -35,11 +41,13 @@ export function ConsistencyHeatmap({
           ))}
           {cells.map((cell) => {
             const mealCopy =
-              cell.loggedCount === 2
-                ? "both meals logged"
-                : cell.loggedCount === 1
-                  ? "one meal logged"
-                  : "no meal logged";
+              cell.loggedCount === mealCount
+                ? mealCount === 1
+                  ? "meal logged"
+                  : "all meals logged"
+                : cell.loggedCount > 0
+                  ? `${cell.loggedCount} of ${mealCount} meals logged`
+                  : "no meals logged";
             const offPlanCopy =
               cell.offPlanStatus === "off"
                 ? ", off-plan meal recorded"
@@ -63,20 +71,16 @@ export function ConsistencyHeatmap({
                 {cell.offPlanStatus === "off" && (
                   <span className="heat-mark" aria-hidden="true" />
                 )}
-                {cell.loggedCount === 1 && (
+                {cell.loggedCount > 0 && (
                   <span
                     aria-hidden="true"
-                    className="absolute inset-x-0 bottom-[3px] text-center text-[9px] font-extrabold leading-none text-[#9a6b37]"
+                    className="absolute inset-x-0 bottom-[3px] text-center text-[9px] font-extrabold leading-none"
+                    style={{
+                      color:
+                        cell.level === "full" ? "#377b5c" : "#9a6b37",
+                    }}
                   >
-                    1
-                  </span>
-                )}
-                {cell.loggedCount === 2 && (
-                  <span
-                    aria-hidden="true"
-                    className="absolute inset-x-0 bottom-[3px] text-center text-[9px] font-extrabold leading-none text-[#377b5c]"
-                  >
-                    2
+                    {cell.loggedCount}
                   </span>
                 )}
               </button>
@@ -87,11 +91,15 @@ export function ConsistencyHeatmap({
 
       <div className="mt-auto flex flex-wrap items-center justify-between gap-2 pt-3.5 text-[10px] text-[#9ba9a0]">
         <span className="inline-flex items-center gap-1.5">
-          <span className="legend-dot bg-[#bde4cc]" aria-hidden="true" /> Both meals
+          <span className="legend-dot bg-[#bde4cc]" aria-hidden="true" />{" "}
+          {mealCount === 1 ? "Meal logged" : "All meals"}
         </span>
-        <span className="inline-flex items-center gap-1.5">
-          <span className="legend-dot bg-[#f5dfba]" aria-hidden="true" /> One meal
-        </span>
+        {mealCount > 1 && (
+          <span className="inline-flex items-center gap-1.5">
+            <span className="legend-dot bg-[#f5dfba]" aria-hidden="true" /> Some
+            meals
+          </span>
+        )}
         <span className="inline-flex items-center gap-1.5">
           <span className="h-[5px] w-[5px] rounded-full bg-[#bd725a]" aria-hidden="true" /> Off-plan
         </span>

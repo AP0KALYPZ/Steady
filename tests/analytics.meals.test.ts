@@ -2,7 +2,8 @@ import { describe, expect, it } from "vitest";
 import {
   buildConsistencyHeatmap,
   buildWeeklyBlocks,
-  mealLogsForDate,
+  loggedMealCount,
+  mealLogForSlot,
   offPlanStatusForDate,
   summarizeMeals,
   summarizeOffPlan,
@@ -18,8 +19,8 @@ describe("meal logging analytics", () => {
     meal("2026-01-07", 2),
   ];
 
-  it("counts two slots only on days with a meal record", () => {
-    const summary = summarizeMeals(meals, "2026-01-10", 7);
+  it("counts scheduled slots only on days with a meal record", () => {
+    const summary = summarizeMeals(meals, "2026-01-10", 7, 2);
     expect(summary.daysWithRecords).toBe(3);
     expect(summary.loggedServings).toBe(4);
     expect(summary.possibleServings).toBe(6);
@@ -28,7 +29,7 @@ describe("meal logging analytics", () => {
   });
 
   it("returns an explicit empty state instead of 0%", () => {
-    const summary = summarizeMeals([], "2026-01-10", 7);
+    const summary = summarizeMeals([], "2026-01-10", 7, 2);
     expect(summary.percent).toBeNull();
     expect(summary.possibleServings).toBe(0);
     expect(summary.daysWithRecords).toBe(0);
@@ -40,19 +41,35 @@ describe("meal logging analytics", () => {
       [meal("2026-01-10", 1), meal("2026-01-10", 2)],
       "2026-01-10",
       7,
+      2,
     );
     expect(summary.percent).toBe(100);
     expect(summary.possibleServings).toBe(2);
   });
 
+  it("uses the chosen meal count as the denominator", () => {
+    const three = [
+      meal("2026-01-10", 1),
+      meal("2026-01-10", 2),
+      meal("2026-01-10", 3),
+    ];
+    const summary = summarizeMeals(three, "2026-01-10", 7, 3);
+    expect(summary.loggedServings).toBe(3);
+    expect(summary.possibleServings).toBe(3);
+    expect(summary.percent).toBe(100);
+    expect(summary.completedDays).toBe(1);
+
+    const partial = summarizeMeals(three.slice(0, 2), "2026-01-10", 7, 3);
+    expect(partial.percent).toBeCloseTo(66.666, 2);
+    expect(partial.completedDays).toBe(0);
+  });
+
   it("finds logs by date and slot without inventing entries", () => {
-    const logs = mealLogsForDate(meals, "2026-01-04");
-    expect(logs.meal1?.date).toBe("2026-01-04");
-    expect(logs.meal2?.date).toBe("2026-01-04");
-    expect(mealLogsForDate(meals, "2026-01-06")).toEqual({
-      meal1: null,
-      meal2: null,
-    });
+    expect(mealLogForSlot(meals, "2026-01-04", 1)?.date).toBe("2026-01-04");
+    expect(mealLogForSlot(meals, "2026-01-04", 2)?.date).toBe("2026-01-04");
+    expect(mealLogForSlot(meals, "2026-01-06", 1)).toBeNull();
+    expect(loggedMealCount(meals, "2026-01-04", 2)).toBe(2);
+    expect(loggedMealCount(meals, "2026-01-06", 2)).toBe(0);
   });
 
   it("counts only explicit off-plan statuses and their denominator", () => {
@@ -78,6 +95,7 @@ describe("meal logging analytics", () => {
       [meal("2026-10-22", 1), meal("2026-10-22", 2), meal("2026-10-21", 2)],
       [offPlan("2026-10-22", "off")],
       "2026-10-22",
+      2,
     );
     expect(cells).toHaveLength(28);
     expect(cells[0].date).toBe("2026-09-28");
@@ -108,6 +126,7 @@ describe("meal logging analytics", () => {
         meal("2026-01-03", 1),
       ],
       "2026-01-10",
+      2,
     );
     expect(blocks).toHaveLength(4);
     expect(blocks[0].label).toBe("Last 7 days");

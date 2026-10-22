@@ -9,12 +9,12 @@ import type {
   Unit,
   WeighIn,
 } from "../types";
-import { createDefaultSnapshot } from "../types";
+import { createDefaultSnapshot, MEAL_SLOTS } from "../types";
 import { isValidDateKey, todayKey } from "./dates";
 import { toKilograms, WEIGHT_MAX_KG } from "./units";
 
 export const BACKUP_FORMAT = "steady-backup";
-export const BACKUP_VERSION = 2;
+export const BACKUP_VERSION = 3;
 export const LEGACY_FORMAT = "steady-v1";
 
 export interface BackupFile {
@@ -132,11 +132,22 @@ function validateSettings(
     errors.push("The goal weight must be below the starting weight.");
     return null;
   }
+  let mealsPerDay = 2;
+  if (value.mealsPerDay != null) {
+    const count = value.mealsPerDay;
+    if (!isFiniteNumber(count) || !Number.isInteger(count) || count < 1 || count > 6) {
+      errors.push("Meals per day must be a whole number from 1 to 6.");
+      return null;
+    }
+    mealsPerDay = count;
+  }
   return {
     unit: unit as Unit,
     startWeightKg: start,
     goalWeightKg: goal,
     sameMeal: value.sameMeal !== false,
+    // Version 2 and older backups predate the configurable meal count.
+    mealsPerDay,
     onboarded: value.onboarded !== false,
   };
 }
@@ -149,8 +160,8 @@ function validateTemplates(
     errors.push("The backup is missing its meal templates.");
     return null;
   }
-  if (value.length > 2) {
-    errors.push("A backup can contain at most two meal templates.");
+  if (value.length > 6) {
+    errors.push("A backup can contain at most six meal templates.");
     return null;
   }
   const bySlot = new Map<MealSlot, MealTemplate>();
@@ -160,12 +171,13 @@ function validateTemplates(
       return null;
     }
     const slot = item.slot;
-    if (slot !== 1 && slot !== 2) {
-      errors.push("Meal templates must use slot 1 or slot 2.");
+    if (typeof slot !== "number" || !MEAL_SLOTS.includes(slot as MealSlot)) {
+      errors.push("Meal templates must use a slot from 1 to 6.");
       return null;
     }
-    if (bySlot.has(slot)) {
-      errors.push(`Duplicate meal template for slot ${slot}.`);
+    const mealSlot = slot as MealSlot;
+    if (bySlot.has(mealSlot)) {
+      errors.push(`Duplicate meal template for slot ${mealSlot}.`);
       return null;
     }
     const name = optionalBody(item.name);
@@ -174,8 +186,8 @@ function validateTemplates(
       errors.push("A meal template contains text that is too long.");
       return null;
     }
-    bySlot.set(slot, {
-      slot,
+    bySlot.set(mealSlot, {
+      slot: mealSlot,
       name,
       ingredients,
       calories: parseMacro(item.calories, 100_000),
@@ -184,7 +196,9 @@ function validateTemplates(
     });
   }
   const defaults = createDefaultSnapshot().templates;
-  return [bySlot.get(1) ?? defaults[0], bySlot.get(2) ?? defaults[1]];
+  return MEAL_SLOTS.map(
+    (slot) => bySlot.get(slot) ?? defaults[slot - 1],
+  );
 }
 
 function validateWeighIns(
@@ -256,7 +270,7 @@ function validateMeals(
       errors.push(`Meal record ${date} is in the future.`);
       return null;
     }
-    if (slot !== 1 && slot !== 2) {
+    if (typeof slot !== "number" || !MEAL_SLOTS.includes(slot as MealSlot)) {
       errors.push(`Meal record ${date} has an invalid slot.`);
       return null;
     }
@@ -283,7 +297,7 @@ function validateMeals(
     }
     result.push({
       date,
-      slot,
+      slot: slot as MealSlot,
       loggedAt,
       name: name.slice(0, 200),
       ingredients:
@@ -520,6 +534,7 @@ function convertLegacyBackup(
     startWeightKg,
     goalWeightKg,
     sameMeal: data.sameMeal !== false,
+    mealsPerDay: 2,
     onboarded: true,
   };
 
@@ -544,7 +559,10 @@ function convertLegacyBackup(
       fat: parseLegacyMacro(record.fat, 5_000),
     };
   };
-  const templates = [readTemplate(0), readTemplate(1)];
+  const legacyDefaults = createDefaultSnapshot().templates;
+  const templates = MEAL_SLOTS.map(
+    (slot) => readTemplate(slot - 1) ?? legacyDefaults[slot - 1],
+  );
 
   const weighIns: WeighIn[] = [];
   if (isRecord(data.weights)) {

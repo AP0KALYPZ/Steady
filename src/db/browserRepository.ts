@@ -5,7 +5,13 @@ import type {
   MealTemplateInput,
   OffPlanStatus,
 } from "../types";
-import { createDefaultSnapshot } from "../types";
+import {
+  createDefaultSnapshot,
+  MAX_MEALS_PER_DAY,
+  MEAL_SLOTS,
+  MIN_MEALS_PER_DAY,
+  normalizeMealsPerDay,
+} from "../types";
 import type { SteadyRepository } from "./repository";
 
 const STORE_KEY = "steady-desktop-browser-preview-v1";
@@ -18,6 +24,29 @@ function clone(snapshot: AppSnapshot): AppSnapshot {
     templates: snapshot.templates.map((entry) => ({ ...entry })),
     offPlanDays: snapshot.offPlanDays.map((entry) => ({ ...entry })),
     notes: snapshot.notes.map((entry) => ({ ...entry })),
+  };
+}
+
+function normalizeSnapshot(value: unknown): AppSnapshot {
+  const defaults = createDefaultSnapshot();
+  if (!isSnapshot(value)) return defaults;
+  return {
+    ...defaults,
+    settings: {
+      ...defaults.settings,
+      ...value.settings,
+      mealsPerDay: normalizeMealsPerDay(value.settings.mealsPerDay),
+    },
+    templates: MEAL_SLOTS.map((slot) => {
+      const saved = value.templates.find((item) => item.slot === slot);
+      return saved ? { ...saved, slot } : defaults.templates[slot - 1];
+    }),
+    weighIns: value.weighIns.map((entry) => ({ ...entry })),
+    meals: value.meals
+      .filter((entry) => entry.slot >= 1 && entry.slot <= MAX_MEALS_PER_DAY)
+      .map((entry) => ({ ...entry })),
+    offPlanDays: value.offPlanDays.map((entry) => ({ ...entry })),
+    notes: value.notes.map((entry) => ({ ...entry })),
   };
 }
 
@@ -54,7 +83,7 @@ export class BrowserRepository implements SteadyRepository {
       const raw = localStorage.getItem(STORE_KEY);
       if (!raw) return createDefaultSnapshot();
       const parsed: unknown = JSON.parse(raw);
-      return isSnapshot(parsed) ? parsed : createDefaultSnapshot();
+      return normalizeSnapshot(parsed);
     } catch {
       return createDefaultSnapshot();
     }
@@ -66,8 +95,8 @@ export class BrowserRepository implements SteadyRepository {
   }
 
   private templateForSlot(slot: MealSlot) {
-    const index = this.snapshot.settings.sameMeal ? 0 : slot - 1;
-    return this.snapshot.templates[index];
+    const target = this.snapshot.settings.sameMeal ? 1 : slot;
+    return this.snapshot.templates.find((entry) => entry.slot === target);
   }
 
   async load(): Promise<AppSnapshot> {
@@ -82,7 +111,15 @@ export class BrowserRepository implements SteadyRepository {
     ) {
       throw new Error("Your goal must be below your starting weight.");
     }
-    this.snapshot.settings = { ...settings };
+    const mealsPerDay = settings.mealsPerDay;
+    if (
+      !Number.isInteger(mealsPerDay) ||
+      mealsPerDay < MIN_MEALS_PER_DAY ||
+      mealsPerDay > MAX_MEALS_PER_DAY
+    ) {
+      throw new Error("Choose between 1 and 6 meals per day.");
+    }
+    this.snapshot.settings = { ...settings, mealsPerDay };
     this.persist();
   }
 
@@ -109,6 +146,13 @@ export class BrowserRepository implements SteadyRepository {
     slot: MealSlot,
     logged: boolean,
   ): Promise<void> {
+    if (
+      !Number.isInteger(slot) ||
+      slot < MIN_MEALS_PER_DAY ||
+      slot > this.snapshot.settings.mealsPerDay
+    ) {
+      throw new Error("That meal is outside your current daily routine.");
+    }
     if (!logged) {
       this.snapshot.meals = this.snapshot.meals.filter(
         (entry) => !(entry.date === date && entry.slot === slot),
@@ -162,6 +206,13 @@ export class BrowserRepository implements SteadyRepository {
 
   async saveTemplate(template: MealTemplateInput): Promise<void> {
     if (!template.name.trim()) throw new Error("Give your meal a name.");
+    if (
+      !Number.isInteger(template.slot) ||
+      template.slot < MIN_MEALS_PER_DAY ||
+      template.slot > MAX_MEALS_PER_DAY
+    ) {
+      throw new Error("Invalid meal slot.");
+    }
     this.snapshot.templates = this.snapshot.templates.map((entry) =>
       entry.slot === template.slot ? { ...template } : entry,
     );
@@ -169,7 +220,7 @@ export class BrowserRepository implements SteadyRepository {
   }
 
   async replaceAll(snapshot: AppSnapshot): Promise<void> {
-    this.snapshot = clone(snapshot);
+    this.snapshot = normalizeSnapshot(snapshot);
     this.persist();
   }
 

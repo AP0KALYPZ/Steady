@@ -20,7 +20,9 @@
         "minHeight": 720,
         "center": true,
         "resizable": true,
+        "maximized": true,
         "fullscreen": false,
+        "decorations": true,
         "theme": "Light",
         "backgroundColor": "#F5F7F4"
       }
@@ -35,7 +37,7 @@
     "targets": "all",
     "category": "HealthcareAndFitness",
     "shortDescription": "Private weight-loss progress studio",
-    "longDescription": "STEADY is an offline-first weight-loss tracker built around one recurring carnivore meal eaten twice daily. It records weigh-ins, meal check-ins, off-plan days and notes in a local SQLite database, with honest trends and full data ownership.",
+    "longDescription": "STEADY is an offline-first weight-loss tracker built around a configurable carnivore meal routine with one to six daily servings. It records weigh-ins, meal check-ins, off-plan days and notes in a local SQLite database, with honest trends and full data ownership.",
     "copyright": "STEADY",
     "icon": [
       "icons/32x32.png",

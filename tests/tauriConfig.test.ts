@@ -16,7 +16,15 @@ interface TauriConfig {
   productName: string;
   identifier: string;
   build: { frontendDist: string };
-  app: { windows: { label: string; title: string }[] };
+  app: {
+    windows: {
+      label: string;
+      title: string;
+      maximized: boolean;
+      fullscreen: boolean;
+      decorations: boolean;
+    }[];
+  };
   bundle: { active: boolean; icon: string[]; targets: string };
 }
 
@@ -29,11 +37,16 @@ describe("Tauri desktop configuration", () => {
     : [rawCapabilities];
   const config = readJson<TauriConfig>("src-tauri/tauri.conf.json");
 
-  it("targets the main window only", () => {
+  it("opens maximized with native window controls", () => {
     expect(capabilities).toHaveLength(1);
     expect(capabilities[0].windows).toEqual(["main"]);
     expect(config.app.windows[0].label).toBe("main");
     expect(config.app.windows[0].title).toContain("STEADY");
+    expect(config.app.windows[0].maximized).toBe(true);
+    // True fullscreen hides the native title bar, leaving no visible close or
+    // resize controls. Stay decorated and maximized instead.
+    expect(config.app.windows[0].fullscreen).toBe(false);
+    expect(config.app.windows[0].decorations).toBe(true);
   });
 
   it("grants SQL writes as well as the plugin's read-only defaults", () => {

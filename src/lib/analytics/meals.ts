@@ -4,48 +4,76 @@ import type {
   OffPlanDay,
   OffPlanStatus,
 } from "../../types";
+import {
+  mealSlotsForCount,
+  normalizeMealsPerDay,
+} from "../../types";
 import { addDays, windowKeys } from "../dates";
 import { fourWeekCalendarKeys } from "./weights";
 
 export interface MealSummary {
   loggedServings: number;
-  /** Two scheduled servings on each day that has a meal record. */
+  /** Scheduled servings on each day that has a meal record. */
   possibleServings: number;
   daysWithRecords: number;
   completedDays: number;
-  /** Percentage of recorded days whose two serving slots are logged. */
+  /** Percentage of scheduled servings logged on recorded days. */
   percent: number | null;
+  mealsPerDay: number;
 }
 
-export function mealLogsForDate(
+export function mealLogForSlot(
   meals: MealLog[],
   date: string,
-): { meal1: MealLog | null; meal2: MealLog | null } {
-  const result: { meal1: MealLog | null; meal2: MealLog | null } = {
-    meal1: null,
-    meal2: null,
-  };
+  slot: MealSlot,
+): MealLog | null {
+  return (
+    meals.find((log) => log.date === date && log.slot === slot) ?? null
+  );
+}
+
+/**
+ * Unique recorded slots for a date, limited to the current daily routine.
+ * Historical servings above a reduced meal count stay in storage but do not
+ * distort today's denominators.
+ */
+export function loggedMealSlots(
+  meals: MealLog[],
+  date: string,
+  mealsPerDay: number,
+): MealSlot[] {
+  const active = new Set(mealSlotsForCount(mealsPerDay));
+  const slots = new Set<MealSlot>();
   for (const log of meals) {
-    if (log.date !== date) continue;
-    if (log.slot === 1) result.meal1 = log;
-    if (log.slot === 2) result.meal2 = log;
+    if (log.date === date && active.has(log.slot)) slots.add(log.slot);
   }
-  return result;
+  return [...slots].sort((a, b) => a - b);
+}
+
+export function loggedMealCount(
+  meals: MealLog[],
+  date: string,
+  mealsPerDay: number,
+): number {
+  return loggedMealSlots(meals, date, mealsPerDay).length;
 }
 
 /**
  * "Meals tracked" measures logging, not diet quality. The denominator counts
- * two scheduled servings only on days with at least one explicit meal record.
- * A day that was never opened contributes nothing and is never treated as a
- * skipped or failed day.
+ * the user's scheduled servings only on days with at least one explicit meal
+ * record. A day that was never opened contributes nothing and is never treated
+ * as a skipped or failed day.
  */
 export function summarizeMeals(
   meals: MealLog[],
   endDate: string,
   days: number,
+  mealsPerDay: number,
 ): MealSummary {
+  const scheduled = normalizeMealsPerDay(mealsPerDay);
   const byDate = new Map<string, Set<MealSlot>>();
   for (const log of meals) {
+    if (log.slot > scheduled) continue;
     const slots = byDate.get(log.date) ?? new Set<MealSlot>();
     slots.add(log.slot);
     byDate.set(log.date, slots);
@@ -60,15 +88,16 @@ export function summarizeMeals(
     if (!slots || slots.size === 0) continue;
     daysWithRecords += 1;
     loggedServings += slots.size;
-    if (slots.size === 2) completedDays += 1;
+    if (slots.size >= scheduled) completedDays += 1;
   }
 
-  const possibleServings = daysWithRecords * 2;
+  const possibleServings = daysWithRecords * scheduled;
   return {
     loggedServings,
     possibleServings,
     daysWithRecords,
     completedDays,
+    mealsPerDay: scheduled,
     percent:
       possibleServings === 0
         ? null
@@ -114,7 +143,7 @@ export type HeatLevel = "none" | "partial" | "full";
 export interface HeatCell {
   date: string;
   level: HeatLevel;
-  loggedCount: 0 | 1 | 2;
+  loggedCount: number;
   offPlanStatus: OffPlanStatus | null;
   isToday: boolean;
   isFuture: boolean;
@@ -128,10 +157,13 @@ export function buildConsistencyHeatmap(
   meals: MealLog[],
   offPlanDays: OffPlanDay[],
   today: string,
+  mealsPerDay: number,
 ): HeatCell[] {
+  const scheduled = normalizeMealsPerDay(mealsPerDay);
   const keys = fourWeekCalendarKeys(today);
   const mealsByDate = new Map<string, Set<MealSlot>>();
   for (const log of meals) {
+    if (log.slot > scheduled) continue;
     const slots = mealsByDate.get(log.date) ?? new Set<MealSlot>();
     slots.add(log.slot);
     mealsByDate.set(log.date, slots);
@@ -142,12 +174,16 @@ export function buildConsistencyHeatmap(
 
   return keys.map((date) => {
     const slots = mealsByDate.get(date);
-    const loggedCount = (slots?.size ?? 0) as 0 | 1 | 2;
+    const loggedCount = slots?.size ?? 0;
     return {
       date,
       loggedCount,
       level:
-        loggedCount === 2 ? "full" : loggedCount === 1 ? "partial" : "none",
+        loggedCount >= scheduled
+          ? "full"
+          : loggedCount > 0
+            ? "partial"
+            : "none",
       offPlanStatus: offByDate.get(date) ?? null,
       isToday: date === today,
       isFuture: date > today,
@@ -168,6 +204,7 @@ export interface WeeklyBlock extends MealSummary {
 export function buildWeeklyBlocks(
   meals: MealLog[],
   today: string,
+  mealsPerDay: number,
   blocks = 4,
 ): WeeklyBlock[] {
   const result: WeeklyBlock[] = [];
@@ -175,7 +212,7 @@ export function buildWeeklyBlocks(
     const endDate = addDays(today, -index * 7);
     const startDate = addDays(endDate, -6);
     result.push({
-      ...summarizeMeals(meals, endDate, 7),
+      ...summarizeMeals(meals, endDate, 7, mealsPerDay),
       label:
         index === 0
           ? "Last 7 days"

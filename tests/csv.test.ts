@@ -63,6 +63,20 @@ describe("CSV export", () => {
     expect(empty.split("\r\n")).toHaveLength(1);
   });
 
+  it("adds meal columns for a three-meal routine", () => {
+    const base = makeSnapshot();
+    const rows = buildCsv(
+      makeSnapshot({
+        settings: { ...base.settings, mealsPerDay: 3 },
+        meals: [meal("2026-01-05", 1), meal("2026-01-05", 3)],
+      }),
+    ).split("\r\n");
+    expect(rows[0]).toContain('"Meal 3 logged","Meal 3 completed at"');
+    expect(rows[1]).toContain(
+      '"yes","2026-01-05T12:00:00.000Z","no","","yes"',
+    );
+  });
+
   it("builds date-stamped filenames", () => {
     expect(csvFilename("2026-10-22")).toBe("steady-progress-2026-10-22.csv");
     expect(backupFilename("2026-10-22")).toBe(

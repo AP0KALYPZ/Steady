@@ -392,17 +392,109 @@
   }
 
   .day-cell {
-    @apply min-h-[94px] rounded-xl border border-edge bg-white px-1.5 py-[13px] text-center transition;
+    @apply relative flex min-h-[100px] flex-col items-center justify-center gap-1.5 rounded-xl border border-edge px-2 py-3 text-center transition;
+    background: #fff;
   }
 
   .day-cell:hover {
     border-color: #b8d8c6;
-    background: #f8fcf9;
+    transform: translateY(-1px);
+  }
+
+  .day-cell[data-level="full"] {
+    background: #ecf8f0;
+    border-color: #c9e6d5;
+  }
+
+  .day-cell[data-level="partial"] {
+    background: #fdf5e6;
+    border-color: #f0dfbf;
+  }
+
+  .day-cell[data-level="none"] {
+    background: #fbfcfb;
   }
 
   .day-cell[data-active="true"] {
-    border-color: #73b496;
-    background: #eef8f1;
+    outline: 2px solid #147151;
+    outline-offset: 1px;
+  }
+
+  .day-cell-weekday {
+    @apply text-[10px] font-bold uppercase tracking-[0.08em] text-[#91a096];
+  }
+
+  .day-cell[data-today="true"] .day-cell-weekday {
+    color: var(--forest);
+    font-weight: 800;
+  }
+
+  .day-cell-number {
+    @apply text-[19px] font-extrabold leading-none tracking-[-0.5px];
+    color: var(--ink);
+  }
+
+  .day-cell[data-level="full"] .day-cell-number {
+    color: #146b54;
+  }
+
+  .day-cell[data-level="partial"] .day-cell-number {
+    color: #7d5a20;
+  }
+
+  .day-cell[data-level="none"] .day-cell-number {
+    color: #60736a;
+  }
+
+  .day-cell-meta {
+    @apply flex min-h-[16px] items-center justify-center gap-1.5 text-[10px] font-bold;
+    color: #5f7d6d;
+  }
+
+  .day-cell-count {
+    @apply rounded-full px-1.5 py-0.5;
+    background: #ffffffc2;
+  }
+
+  .day-cell[data-level="partial"] .day-cell-count {
+    color: #8a6324;
+  }
+
+  .day-cell-offplan {
+    display: inline-block;
+    height: 6px;
+    width: 6px;
+    flex: none;
+    border-radius: 999px;
+    background: #bd725a;
+    box-shadow: 0 0 0 2px #f7e9e4;
+  }
+
+  .day-legend {
+    @apply mt-4 flex flex-wrap items-center gap-x-5 gap-y-2 border-t border-[#f0f4ef] pt-3.5 text-[10px] font-semibold text-[#8b9a90];
+  }
+
+  .day-legend-item {
+    @apply inline-flex items-center gap-1.5;
+  }
+
+  .day-legend-swatch {
+    @apply inline-block h-3 w-3 rounded-[4px] border;
+  }
+
+  .day-legend-swatch[data-level="full"] {
+    background: #d5eddd;
+    border-color: #b4dcc4;
+  }
+
+  .day-legend-swatch[data-level="partial"] {
+    background: #f7e8c9;
+    border-color: #e6cfa4;
+  }
+
+  .day-legend-swatch[data-level="none"] {
+    background: #fff;
+    border-color: #dfe8e0;
   }
 
   .week-letter {

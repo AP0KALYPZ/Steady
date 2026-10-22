@@ -52,7 +52,12 @@ export function MealTemplateDialog({ slot, onClose }: MealTemplateDialogProps) {
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
-  const targetedMeal = settings?.sameMeal ? "both daily servings" : `Meal ${slot}`;
+  const mealCount = settings?.mealsPerDay ?? 2;
+  const targetedMeal = settings?.sameMeal
+    ? mealCount === 1
+      ? "your daily serving"
+      : `all ${mealCount} daily servings`
+    : `Meal ${slot}`;
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();

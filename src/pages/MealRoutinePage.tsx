@@ -4,8 +4,16 @@ import { useToast } from "../components/ui/Toast";
 import { useDialogs } from "../components/dialogs/DialogProvider";
 import { PageHeader } from "../components/layout/PageHeader";
 import { Button } from "../components/ui/Button";
+import { Segmented } from "../components/ui/Segmented";
 import { Switch } from "../components/ui/Switch";
-import type { MealTemplate } from "../types";
+import {
+  MAX_MEALS_PER_DAY,
+  MEAL_SLOTS,
+  mealCountLabel,
+  mealSlotsForCount,
+  type MealSlot,
+  type MealTemplate,
+} from "../types";
 
 function NutritionLine({ template }: { template: MealTemplate }) {
   const parts: string[] = [];
@@ -27,13 +35,20 @@ export function MealRoutinePage() {
   const { openMealTemplate } = useDialogs();
   const { settings, templates } = snapshot;
 
-  const setSameMeal = async (next: boolean) => {
+  const mealCount = settings.mealsPerDay;
+  const activeSlots = mealSlotsForCount(mealCount);
+  const mealWord = mealCount === 1 ? "meal" : "meals";
+  const servingWord = mealCount === 1 ? "serving" : "servings";
+
+  const templateFor = (slot: MealSlot) =>
+    templates.find((template) => template.slot === slot);
+
+  const setMealCount = async (next: number) => {
+    if (next === mealCount) return;
     try {
-      await actions.saveSettings({ ...settings, sameMeal: next });
+      await actions.saveSettings({ ...settings, mealsPerDay: next });
       showToast(
-        next
-          ? "One shared meal routine for both servings"
-          : "Meal 2 now has its own template",
+        `${next} ${next === 1 ? "meal" : "meals"} per day · your pages are updated`,
       );
     } catch (error) {
       showToast(
@@ -43,18 +58,34 @@ export function MealRoutinePage() {
     }
   };
 
-  const tiles = ([1, 2] as const).map((slot) => {
-    const shared = settings.sameMeal && slot === 2;
-    const template = templates[settings.sameMeal ? 0 : slot - 1];
-    return { slot, shared, template };
-  });
+  const setSameMeal = async (next: boolean) => {
+    try {
+      await actions.saveSettings({ ...settings, sameMeal: next });
+      showToast(
+        next
+          ? `One shared recipe for all ${mealCount} daily ${servingWord}`
+          : `Each meal now has its own recipe`,
+      );
+    } catch (error) {
+      showToast(
+        error instanceof Error ? error.message : "The routine could not be saved.",
+        "error",
+      );
+    }
+  };
+
+  const shared = settings.sameMeal;
+  const tiles = (shared ? [1] : activeSlots).map((slot) => ({
+    slot: slot as MealSlot,
+    template: templateFor(slot as MealSlot),
+  }));
 
   return (
     <>
       <PageHeader
         eyebrow="Simplicity is the system"
         title="Your carnivore routine"
-        subtitle="Save your go-to meal once. Track both daily servings in one tap."
+        subtitle={`Save your go-to meal once, then track your ${mealCount === 1 ? "daily meal" : `${mealCount} daily meals`} in one tap.`}
       />
 
       <section
@@ -69,11 +100,15 @@ export function MealRoutinePage() {
             id="routine-hero-title"
             className="mt-3 text-[22px] font-extrabold tracking-[-0.5px]"
           >
-            Two meals. One simple routine.
+            {mealCountLabel(mealCount).replace(/^./, (letter) =>
+              letter.toUpperCase(),
+            )}{" "}
+            {mealWord}. One simple routine.
           </h2>
           <p className="mt-2 max-w-[475px] text-[12px] leading-relaxed text-[#cde3d7]">
-            Build a meal template with the ingredients you actually eat. Mark each
-            serving as eaten — no repetitive food entry required.
+            Build a meal template with the ingredients you actually eat. Mark
+            each of your {mealCount} daily {servingWord} as eaten — no repetitive
+            food entry required.
           </p>
         </div>
         <div
@@ -89,63 +124,112 @@ export function MealRoutinePage() {
         </div>
       </section>
 
-      <section className="surface mt-[19px] p-5 sm:p-6" aria-labelledby="routine-template-title">
-        <div className="flex flex-wrap items-center justify-between gap-4 rounded-xl border border-[#edf2ec] bg-[#f8fbf8] p-[15px]">
-          <div>
-            <h2 id="routine-template-title" className="text-[13px] font-bold text-ink">
-              Repeat the same meal twice a day
+      <section
+        className="surface mt-[19px] p-5 sm:p-6"
+        aria-labelledby="meal-count-title"
+      >
+        <div className="flex flex-wrap items-start justify-between gap-4">
+          <div className="max-w-[480px]">
+            <h2 id="meal-count-title" className="card-title">
+              How many meals do you eat each day?
             </h2>
-            <p className="mt-1 text-[11px] text-[#8b9a91]">
-              Switch off to set up a different second meal.
+            <p className="card-sub">
+              Choose 1 to {MAX_MEALS_PER_DAY} servings. Your daily check-in,
+              journal, calendar, and insights all follow this plan.
             </p>
           </div>
-          <Switch
-            checked={settings.sameMeal}
-            onChange={(next) => void setSameMeal(next)}
-            label="Repeat the same meal twice daily"
+          <Segmented
+            label="Meals per day"
+            value={mealCount}
+            onChange={(value) => void setMealCount(value)}
+            options={MEAL_SLOTS.map((slot) => ({
+              value: slot,
+              label: String(slot),
+            }))}
           />
         </div>
+        <div className="info-banner">
+          <strong>Past records are kept.</strong> Changing your plan updates the
+          denominator used for new check-ins and analytics; it does not delete
+          meals you already logged.
+        </div>
+      </section>
 
-        <div className="mt-[18px] grid grid-cols-1 gap-[18px] md:grid-cols-2">
-          {tiles.map(({ slot, shared, template }) => {
+      <section
+        className="surface mt-[19px] p-5 sm:p-6"
+        aria-labelledby="routine-template-title"
+      >
+        {mealCount > 1 && (
+          <div className="mb-[18px] flex flex-wrap items-center justify-between gap-4 rounded-xl border border-[#edf2ec] bg-[#f8fbf8] p-[15px]">
+            <div>
+              <h2
+                id="routine-template-title"
+                className="text-[13px] font-bold text-ink"
+              >
+                Repeat the same meal for every serving
+              </h2>
+              <p className="mt-1 text-[11px] text-[#8b9a91]">
+                Switch off to give each of your {mealCount} meals its own recipe.
+              </p>
+            </div>
+            <Switch
+              checked={settings.sameMeal}
+              onChange={(next) => void setSameMeal(next)}
+              label="Use the same recipe for every daily meal"
+            />
+          </div>
+        )}
+
+        <div
+          className={
+            shared
+              ? "grid grid-cols-1 gap-[18px]"
+              : "grid grid-cols-1 gap-[18px] md:grid-cols-2 xl:grid-cols-3"
+          }
+        >
+          {tiles.map(({ slot, template }) => {
             const configured = Boolean(template?.name.trim());
+            const sharedDescription =
+              mealCount === 1
+                ? "Used for your daily meal."
+                : `Used for all ${mealCount} daily ${servingWord}.`;
             return (
               <div
                 key={slot}
                 className="flex flex-col rounded-[15px] border border-edge p-[21px]"
               >
                 <div className="text-[10px] font-extrabold uppercase tracking-[1.3px] text-forest">
-                  Meal {slot}
+                  {shared ? "Your recurring meal" : `Meal ${slot}`}
                 </div>
                 <h3 className="mb-2 mt-2 text-[19px] font-extrabold tracking-[-0.65px] text-ink">
-                  {shared ? templates[0]?.name || "Uses Meal 1" : configured ? template.name : `Set up Meal ${slot}`}
+                  {configured ? template?.name : shared ? "Set up your shared meal" : `Set up Meal ${slot}`}
                 </h3>
                 <p className="min-h-[40px] text-[12px] leading-relaxed text-[#8b9a91]">
-                  {shared
-                    ? templates[0]?.name
-                      ? `Both servings use your Meal 1 recipe${templates[0].ingredients ? `: ${templates[0].ingredients}` : "."}`
-                      : "Both servings will use your Meal 1 recipe once it is set up."
-                    : template?.ingredients ||
-                      "Add the ingredients and portions for this meal."}
+                  {template?.ingredients ||
+                    (shared
+                      ? `Add the ingredients and portions you eat for all ${mealCount} daily ${servingWord}.`
+                      : "Add the ingredients and portions for this meal.")}
                 </p>
                 <div>
                   <span className="my-2 inline-block rounded-lg bg-[#ecf7ef] px-2.5 py-[7px] text-[10px] font-bold text-[#43836a]">
-                    {settings.sameMeal ? "Shared routine" : "Individual template"}
+                    {shared
+                      ? mealCount === 1
+                        ? "Your daily recipe"
+                        : `Used for all ${mealCount} servings`
+                      : "Individual recipe"}
                   </span>
                 </div>
-                {!shared && template && <NutritionLine template={template} />}
-                <div className="mt-auto pt-4">
-                  <Button
-                    size="small"
-                    onClick={() => openMealTemplate(shared ? 1 : slot)}
-                  >
+                {template && <NutritionLine template={template} />}
+                <div className="mt-auto flex flex-wrap items-center gap-3 pt-4">
+                  <Button size="small" onClick={() => openMealTemplate(slot)}>
                     <NotebookPen className="h-3.5 w-3.5" aria-hidden="true" />
-                    {shared
-                      ? "Edit Meal 1 recipe"
-                      : configured
-                        ? "Edit recipe"
-                        : `Set up Meal ${slot}`}
+                    {configured ? "Edit recipe" : "Set up meal"}
                   </Button>
+                  {shared && (
+                    <span className="text-[10px] leading-relaxed text-[#8b9a91]">
+                      {sharedDescription}
+                    </span>
+                  )}
                 </div>
               </div>
             );
@@ -153,11 +237,11 @@ export function MealRoutinePage() {
         </div>
 
         <div className="info-banner">
-          <strong>Nutrition is entirely optional.</strong> Values are shown only when
-          you enter them for your actual recipe. STEADY does not estimate calories,
-          protein or fat, and it never assumes every serving is identical. Each
-          logged serving keeps a snapshot, so editing this recipe cannot rewrite
-          your history.
+          <strong>Nutrition is entirely optional.</strong> Values are shown only
+          when you enter them for your actual recipe. STEADY does not estimate
+          calories, protein or fat, and it never assumes every serving is
+          identical. Each logged serving keeps a snapshot, so editing this
+          recipe cannot rewrite your history.
         </div>
       </section>
     </>

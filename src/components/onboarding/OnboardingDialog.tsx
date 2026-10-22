@@ -5,7 +5,11 @@ import { Button } from "../ui/Button";
 import { Segmented } from "../ui/Segmented";
 import { useAppData } from "../../hooks/useAppData";
 import { useToast } from "../ui/Toast";
-import type { MealTemplateInput, Unit } from "../../types";
+import {
+  MEAL_SLOTS,
+  type MealTemplateInput,
+  type Unit,
+} from "../../types";
 import {
   formatWeightValue,
   KG_PER_LB,
@@ -31,6 +35,9 @@ export function OnboardingDialog() {
     currentSettings?.goalWeightKg != null
       ? formatWeightValue(currentSettings.goalWeightKg, currentSettings.unit)
       : "",
+  );
+  const [mealsPerDay, setMealsPerDay] = useState(
+    currentSettings?.mealsPerDay ?? 2,
   );
   const [mealName, setMealName] = useState("");
   const [mealIngredients, setMealIngredients] = useState("");
@@ -101,6 +108,7 @@ export function OnboardingDialog() {
         startWeightKg: startKg,
         goalWeightKg: goalKg,
         sameMeal: true,
+        mealsPerDay,
         onboarded,
       },
       templates,
@@ -135,6 +143,7 @@ export function OnboardingDialog() {
         startWeightKg: startKg,
         goalWeightKg: goalKg,
         sameMeal: true,
+        mealsPerDay,
         onboarded: true,
       });
       showToast("You can finish setup any time in Settings.", "info");
@@ -155,6 +164,7 @@ export function OnboardingDialog() {
         startWeightKg: null,
         goalWeightKg: null,
         sameMeal: true,
+        mealsPerDay,
         onboarded: true,
       });
       showToast("You can set your goal and meal any time in Settings.", "info");
@@ -197,7 +207,7 @@ export function OnboardingDialog() {
       >
         {step === 1
           ? "Choose your units and a goal. Nothing is shared, and no account is needed."
-          : "Save the carnivore meal you actually eat. You will log each of the two daily servings with one tap."}
+          : `Save the carnivore ${mealsPerDay === 1 ? "meal" : "meals"} you actually eat. You will log each of your ${mealsPerDay} daily ${mealsPerDay === 1 ? "serving" : "servings"} with one tap.`}
       </p>
 
       <div className="mt-5 flex items-center gap-2" aria-hidden="true">
@@ -297,8 +307,28 @@ export function OnboardingDialog() {
       ) : (
         <form onSubmit={finish} className="mt-5" noValidate>
           <div className="field">
+            <span className="field-label" id="onboarding-meals-label">
+              Meals per day
+            </span>
+            <div>
+              <Segmented
+                label="Meals per day"
+                value={mealsPerDay}
+                onChange={(value) => setMealsPerDay(Number(value))}
+                options={MEAL_SLOTS.map((slot) => ({
+                  value: slot,
+                  label: String(slot),
+                }))}
+              />
+            </div>
+            <p className="field-hint">
+              You can change this later in Meal routine. Every page adapts to
+              your plan.
+            </p>
+          </div>
+          <div className="field mt-4">
             <label htmlFor="onboarding-meal" className="field-label">
-              Your recurring meal
+              {mealsPerDay === 1 ? "Your meal" : "Your recurring meal"}
             </label>
             <input
               id="onboarding-meal"
@@ -328,8 +358,12 @@ export function OnboardingDialog() {
             />
           </div>
           <div className="info-banner">
-            <strong>Same meal twice a day.</strong> Both servings use this recipe.
-            You can add a separate Meal 2 later in Meal routine.
+            <strong>
+              {mealsPerDay === 1
+                ? "One simple meal."
+                : `All ${mealsPerDay} daily servings use this recipe.`}
+            </strong>{" "}
+            You can add separate recipes for each meal later in Meal routine.
           </div>
           {error && (
             <p className="field-error mt-3" role="alert">

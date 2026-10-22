@@ -2,7 +2,32 @@ export type Unit = "lb" | "kg";
 
 export type OffPlanStatus = "on" | "off";
 
-export type MealSlot = 1 | 2;
+export const MIN_MEALS_PER_DAY = 1;
+export const MAX_MEALS_PER_DAY = 6;
+
+/** One serving per day. STEADY supports up to six scheduled servings. */
+export type MealSlot = 1 | 2 | 3 | 4 | 5 | 6;
+
+export const MEAL_SLOTS: readonly MealSlot[] = [1, 2, 3, 4, 5, 6];
+
+/** Clamp a persisted or imported value to the supported daily meal range. */
+export function normalizeMealsPerDay(value: unknown): number {
+  const numeric = typeof value === "number" ? value : Number(value);
+  if (!Number.isFinite(numeric) || !Number.isInteger(numeric)) return 2;
+  return Math.min(MAX_MEALS_PER_DAY, Math.max(MIN_MEALS_PER_DAY, numeric));
+}
+
+export function mealSlotsForCount(count: number): MealSlot[] {
+  return MEAL_SLOTS.slice(0, normalizeMealsPerDay(count));
+}
+
+export function mealCountLabel(count: number): string {
+  return (
+    ["zero", "one", "two", "three", "four", "five", "six"][
+      normalizeMealsPerDay(count)
+    ] ?? String(count)
+  );
+}
 
 export interface AppSettings {
   unit: Unit;
@@ -11,6 +36,8 @@ export interface AppSettings {
   /** Canonical kilograms. Must be below the starting weight. */
   goalWeightKg: number | null;
   sameMeal: boolean;
+  /** Scheduled servings per day, from 1 to 6. */
+  mealsPerDay: number;
   onboarded: boolean;
 }
 
@@ -73,28 +100,19 @@ export function createDefaultSnapshot(): AppSnapshot {
       startWeightKg: null,
       goalWeightKg: null,
       sameMeal: true,
+      mealsPerDay: 2,
       onboarded: false,
     },
     weighIns: [],
     meals: [],
-    templates: [
-      {
-        slot: 1,
-        name: "",
-        ingredients: "",
-        calories: null,
-        protein: null,
-        fat: null,
-      },
-      {
-        slot: 2,
-        name: "",
-        ingredients: "",
-        calories: null,
-        protein: null,
-        fat: null,
-      },
-    ],
+    templates: MEAL_SLOTS.map((slot) => ({
+      slot,
+      name: "",
+      ingredients: "",
+      calories: null,
+      protein: null,
+      fat: null,
+    })),
     offPlanDays: [],
     notes: [],
   };

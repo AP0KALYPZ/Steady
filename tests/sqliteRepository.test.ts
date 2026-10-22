@@ -42,12 +42,13 @@ describe("SQLite migrations", () => {
       startWeightKg: null,
       goalWeightKg: null,
       sameMeal: true,
+      mealsPerDay: 2,
       onboarded: false,
     });
     expect(snapshot.weighIns).toEqual([]);
     expect(snapshot.meals).toEqual([]);
     expect(snapshot.notes).toEqual([]);
-    expect(snapshot.templates).toHaveLength(2);
+    expect(snapshot.templates).toHaveLength(6);
     expect(snapshot.templates[0].name).toBe("");
 
     const version = await testDb.driver.select<{ user_version: number }>(
@@ -66,6 +67,45 @@ describe("SQLite migrations", () => {
     expect(snapshot.weighIns).toHaveLength(1);
     expect(snapshot.weighIns[0].weightKg).toBe(80);
   });
+
+  it("upgrades a version 1 database without losing meal history", async () => {
+    const legacy = createTestDatabase();
+    try {
+      for (const statement of MIGRATIONS[0].statements) {
+        await legacy.driver.execute(statement);
+      }
+      await legacy.driver.execute("PRAGMA user_version = 1");
+      await legacy.driver.execute(
+        `UPDATE settings SET unit = 'kg', same_meal = 0 WHERE id = 1`,
+      );
+      await legacy.driver.execute(
+        `UPDATE meal_templates
+            SET name = 'Legacy beef', ingredients = 'Beef and eggs'
+          WHERE slot = 1`,
+      );
+      await legacy.driver.execute(
+        `INSERT INTO meal_logs
+          (date, slot, logged_at, snapshot_name, snapshot_ingredients,
+           snapshot_calories, snapshot_protein, snapshot_fat)
+         VALUES ('2026-01-02', 2, NULL, 'Legacy beef', 'Beef and eggs',
+                 NULL, NULL, NULL)`,
+      );
+
+      await migrate(legacy.driver);
+      const upgraded = new SqliteRepository(legacy.driver);
+      const snapshot = await upgraded.load();
+
+      expect(snapshot.settings.mealsPerDay).toBe(2);
+      expect(snapshot.settings.sameMeal).toBe(false);
+      expect(snapshot.templates).toHaveLength(6);
+      expect(snapshot.templates[0].name).toBe("Legacy beef");
+      expect(snapshot.meals).toHaveLength(1);
+      expect(snapshot.meals[0].slot).toBe(2);
+      expect(snapshot.meals[0].name).toBe("Legacy beef");
+    } finally {
+      legacy.db.close();
+    }
+  });
 });
 
 describe("settings and weigh-ins", () => {
@@ -75,11 +115,13 @@ describe("settings and weigh-ins", () => {
       startWeightKg: 83.687792265,
       goalWeightKg: 68.0388555,
       sameMeal: false,
+      mealsPerDay: 3,
       onboarded: true,
     });
     const snapshot = await repo.load();
     expect(snapshot.settings.unit).toBe("kg");
     expect(snapshot.settings.startWeightKg).toBeCloseTo(83.687792265, 9);
+    expect(snapshot.settings.mealsPerDay).toBe(3);
     expect(snapshot.settings.sameMeal).toBe(false);
     expect(snapshot.settings.onboarded).toBe(true);
   });
@@ -91,6 +133,7 @@ describe("settings and weigh-ins", () => {
         startWeightKg: 80,
         goalWeightKg: 80,
         sameMeal: true,
+        mealsPerDay: 2,
         onboarded: true,
       }),
     ).rejects.toThrow(/below/);
@@ -180,6 +223,7 @@ describe("meal templates and logs", () => {
       startWeightKg: null,
       goalWeightKg: null,
       sameMeal: false,
+      mealsPerDay: 2,
       onboarded: true,
     });
     await repo.saveTemplate({
@@ -193,6 +237,35 @@ describe("meal templates and logs", () => {
     await repo.setMealLogged("2026-01-01", 2, true);
     const snapshot = await repo.load();
     expect(snapshot.meals[0].name).toBe("Evening eggs");
+  });
+
+  it("supports a three-meal routine with per-meal recipes", async () => {
+    await repo.saveSettings({
+      unit: "lb",
+      startWeightKg: null,
+      goalWeightKg: null,
+      sameMeal: false,
+      mealsPerDay: 3,
+      onboarded: true,
+    });
+    await seedTemplate();
+    await repo.saveTemplate({
+      slot: 3,
+      name: "Evening steak",
+      ingredients: "Ribeye",
+      calories: null,
+      protein: null,
+      fat: null,
+    });
+    await repo.setMealLogged("2026-01-01", 1, true);
+    await repo.setMealLogged("2026-01-01", 3, true);
+    const snapshot = await repo.load();
+    expect(snapshot.settings.mealsPerDay).toBe(3);
+    expect(snapshot.meals.map((entry) => entry.slot)).toEqual([1, 3]);
+    expect(snapshot.meals[1].name).toBe("Evening steak");
+    await expect(repo.setMealLogged("2026-01-01", 4, true)).rejects.toThrow(
+      /outside/,
+    );
   });
 
   it("unmarks a meal without touching the other serving", async () => {
@@ -277,6 +350,7 @@ describe("restore and reset", () => {
         startWeightKg: 90,
         goalWeightKg: 80,
         sameMeal: false,
+        mealsPerDay: 3,
         onboarded: true,
       },
       weighIns: [weighIn("2026-02-01", 198), weighIn("2026-02-02", 197)],
@@ -302,6 +376,7 @@ describe("restore and reset", () => {
       startWeightKg: 90,
       goalWeightKg: 80,
       sameMeal: true,
+      mealsPerDay: 2,
       onboarded: true,
     });
     await repo.upsertWeighIn("2026-01-01", 88);
@@ -352,6 +427,7 @@ describe("restore and reset", () => {
       startWeightKg: 90,
       goalWeightKg: 80,
       sameMeal: false,
+      mealsPerDay: 4,
       onboarded: true,
     });
 
@@ -362,6 +438,7 @@ describe("restore and reset", () => {
       startWeightKg: null,
       goalWeightKg: null,
       sameMeal: true,
+      mealsPerDay: 2,
       onboarded: false,
     });
     expect(snapshot.weighIns).toEqual([]);

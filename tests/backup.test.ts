@@ -35,9 +35,38 @@ describe("JSON backups", () => {
       source.settings.startWeightKg as number,
       9,
     );
+    expect(result.snapshot.settings.mealsPerDay).toBe(2);
+    expect(result.snapshot.templates).toHaveLength(6);
     expect(result.snapshot.weighIns).toHaveLength(2);
     expect(result.snapshot.meals[0].name).toBe("Beef plate");
     expect(result.snapshot.notes[0].body).toBe("Energy steady.");
+  });
+
+  it("restores a three-meal routine and fills untouched slots", () => {
+    const base = makeSnapshot();
+    const source = makeSnapshot({
+      settings: { ...base.settings, mealsPerDay: 3, sameMeal: false },
+      meals: [meal("2026-10-21", 1), meal("2026-10-21", 3)],
+    });
+    const result = parseBackup(serializeBackup(source, "1.0.0"), TODAY);
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.snapshot.settings.mealsPerDay).toBe(3);
+    expect(result.snapshot.settings.sameMeal).toBe(false);
+    expect(result.snapshot.templates).toHaveLength(6);
+    expect(result.snapshot.meals.map((entry) => entry.slot)).toEqual([1, 3]);
+  });
+
+  it("defaults an older backup without a meal count to two", () => {
+    const backup = buildBackup(snapshot(), "1.0.0");
+    backup.version = 2;
+    delete (backup.data.settings as unknown as Record<string, unknown>)
+      .mealsPerDay;
+    const result = parseBackup(JSON.stringify(backup), TODAY);
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.snapshot.settings.mealsPerDay).toBe(2);
+    expect(result.snapshot.templates).toHaveLength(6);
   });
 
   it("includes a schema version and refuses files from a newer schema", () => {
@@ -116,8 +145,16 @@ describe("JSON backups", () => {
 
     const badSlot = buildBackup(snapshot(), "1.0.0");
     // Force an unsupported slot past the type system.
-    (badSlot.data.meals[0] as unknown as { slot: number }).slot = 3;
+    (badSlot.data.meals[0] as unknown as { slot: number }).slot = 7;
     expect(parseBackup(JSON.stringify(badSlot), TODAY).ok).toBe(false);
+  });
+
+  it("rejects an out-of-range daily meal count", () => {
+    const backup = buildBackup(snapshot(), "1.0.0");
+    (backup.data.settings as unknown as { mealsPerDay: number }).mealsPerDay = 7;
+    const result = parseBackup(JSON.stringify(backup), TODAY);
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.errors.join(" ")).toContain("1 to 6");
   });
 
   it("limits notes and rejects an invalid completion timestamp", () => {

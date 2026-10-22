@@ -46,9 +46,9 @@ export function OffPlanControl({
 
   const caption =
     status === "on"
-      ? "This day is marked on-plan."
+      ? "This day is marked on-plan"
       : status === "off"
-        ? "This day includes an off-plan meal."
+        ? "This day includes an off-plan meal"
         : "Not recorded yet";
 
   return (
@@ -131,7 +131,7 @@ export function OffPlanControl({
         </button>
       </div>
       <p className="sr-only" aria-live="polite">
-        Off-plan status: {caption}
+        Off-plan status: {caption}.
       </p>
     </div>
   );

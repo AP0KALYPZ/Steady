@@ -22,8 +22,9 @@ export function InsightsPage() {
   const today = useToday();
   const { unit } = snapshot.settings;
 
-  const meal7 = summarizeMeals(snapshot.meals, today, 7);
-  const meal30 = summarizeMeals(snapshot.meals, today, 30);
+  const mealCount = snapshot.settings.mealsPerDay;
+  const meal7 = summarizeMeals(snapshot.meals, today, 7, mealCount);
+  const meal30 = summarizeMeals(snapshot.meals, today, 30, mealCount);
   const offPlan = summarizeOffPlan(snapshot.offPlanDays, today, 30);
   const weighInCount = countWeighInsInWindow(snapshot.weighIns, today, 30);
   const week = compareWeeks(snapshot.weighIns, today);
@@ -33,7 +34,7 @@ export function InsightsPage() {
     snapshot.settings.goalWeightKg,
     latest?.weightKg ?? null,
   );
-  const blocks = buildWeeklyBlocks(snapshot.meals, today);
+  const blocks = buildWeeklyBlocks(snapshot.meals, today, mealCount);
 
   const tiles = [
     {
@@ -118,7 +119,8 @@ export function InsightsPage() {
             Meal logs by week
           </h2>
           <p className="card-sub">
-            Logged servings out of two per day on days with a meal record
+            Logged servings out of {mealCount} per day on days with a meal
+            record
           </p>
           <WeeklyBars blocks={blocks} />
         </section>
@@ -152,8 +154,9 @@ export function InsightsPage() {
                 Unlogged is not the same as missed
               </strong>
               <span className="mt-1 block text-[10px] leading-relaxed text-[#8e9d93]">
-                Meal percentages use only days where you entered a meal record.
-                They measure logging, not whether you met a nutritional goal.
+                Meal percentages use only days where you entered a meal record,
+                measured against your current {mealCount}-meal daily plan. They
+                measure logging, not whether you met a nutritional goal.
               </span>
             </div>
           </div>

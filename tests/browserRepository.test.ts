@@ -77,6 +77,31 @@ describe("browser preview repository", () => {
     expect(snapshot.meals[0].calories).toBe(500);
   });
 
+  it("persists a three-meal routine and logs each slot", async () => {
+    const blank = makeSnapshot();
+    const repo = new BrowserRepository(
+      makeSnapshot({
+        settings: { ...blank.settings, sameMeal: false, mealsPerDay: 3 },
+        templates: [
+          blank.templates[0],
+          { ...blank.templates[1], name: "Eggs", ingredients: "4 eggs" },
+          { ...blank.templates[2], name: "Steak", ingredients: "Ribeye" },
+          ...blank.templates.slice(3),
+        ],
+      }),
+    );
+    await repo.setMealLogged("2026-01-01", 1, true);
+    await repo.setMealLogged("2026-01-01", 2, true);
+    await repo.setMealLogged("2026-01-01", 3, true);
+    const snapshot = await repo.load();
+    expect(snapshot.settings.mealsPerDay).toBe(3);
+    expect(snapshot.meals.map((entry) => entry.slot)).toEqual([1, 2, 3]);
+    expect(snapshot.meals[2].name).toBe("Steak");
+    await expect(repo.setMealLogged("2026-01-01", 4, true)).rejects.toThrow(
+      /outside/,
+    );
+  });
+
   it("requires a template, validates goals, and clears records", async () => {
     const blank = makeSnapshot();
     const repo = new BrowserRepository(

@@ -29,7 +29,12 @@ export function MetricCards({
   const latest = latestWeighIn(snapshot.weighIns);
   const change30 = changeOverWindow(snapshot.weighIns, today, 30);
   const week = compareWeeks(snapshot.weighIns, today);
-  const meal7 = summarizeMeals(snapshot.meals, today, 7);
+  const meal7 = summarizeMeals(
+    snapshot.meals,
+    today,
+    7,
+    snapshot.settings.mealsPerDay,
+  );
 
   const changeCard = change30
     ? splitDelta(change30.changeKg, unit)

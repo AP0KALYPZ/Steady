@@ -1,8 +1,12 @@
 import { useState } from "react";
 import { Check } from "lucide-react";
-import type { AppSnapshot, MealSlot } from "../../types";
+import {
+  mealSlotsForCount,
+  type AppSnapshot,
+  type MealSlot,
+} from "../../types";
 import { formatShortDate } from "../../lib/dates";
-import { mealLogsForDate } from "../../lib/analytics/meals";
+import { mealLogForSlot } from "../../lib/analytics/meals";
 import { offPlanStatusForDate } from "../../lib/analytics/meals";
 import { useAppData } from "../../hooks/useAppData";
 import { useToast } from "../ui/Toast";
@@ -20,19 +24,23 @@ export function TodayCheckIn({ snapshot, today }: TodayCheckInProps) {
   const { openMealTemplate } = useDialogs();
   const [busySlot, setBusySlot] = useState<MealSlot | null>(null);
 
-  const logs = mealLogsForDate(snapshot.meals, today);
+  const mealCount = snapshot.settings.mealsPerDay;
+  const slots = mealSlotsForCount(mealCount);
   const offPlan = offPlanStatusForDate(snapshot.offPlanDays, today);
-  const completed = (logs.meal1 ? 1 : 0) + (logs.meal2 ? 1 : 0);
+  const completed = slots.filter((slot) =>
+    Boolean(mealLogForSlot(snapshot.meals, today, slot)),
+  ).length;
+  const remaining = mealCount - completed;
   const radius = 26;
   const circumference = 2 * Math.PI * radius;
 
   const templateFor = (slot: MealSlot) => {
-    const index = snapshot.settings.sameMeal ? 0 : slot - 1;
-    return snapshot.templates[index];
+    const target = snapshot.settings.sameMeal ? 1 : slot;
+    return snapshot.templates.find((template) => template.slot === target);
   };
 
   const toggleMeal = async (slot: MealSlot) => {
-    const logged = slot === 1 ? Boolean(logs.meal1) : Boolean(logs.meal2);
+    const logged = Boolean(mealLogForSlot(snapshot.meals, today, slot));
     const template = templateFor(slot);
     if (!logged && !template?.name.trim()) {
       openMealTemplate(slot);
@@ -51,6 +59,28 @@ export function TodayCheckIn({ snapshot, today }: TodayCheckInProps) {
       setBusySlot(null);
     }
   };
+
+  const headline =
+    completed === mealCount
+      ? mealCount === 1
+        ? "Meal checked in"
+        : mealCount === 2
+          ? "Both meals checked in"
+          : "All meals checked in"
+      : completed === 0
+        ? "Your routine, at a glance"
+        : `${remaining} meal${remaining === 1 ? "" : "s"} left to log`;
+
+  const caption =
+    completed === mealCount
+      ? mealCount === 1
+        ? "Your meal is logged today"
+        : mealCount === 2
+          ? "Two meals logged today"
+          : `All ${mealCount} meals logged today`
+      : completed === 0
+        ? "Tap a meal when you finish it"
+        : `${completed} of ${mealCount} meals logged`;
 
   return (
     <section className="surface flex min-h-[390px] flex-col p-[22px]" aria-labelledby="today-checkin-title">
@@ -76,34 +106,28 @@ export function TodayCheckIn({ snapshot, today }: TodayCheckInProps) {
               strokeWidth="6"
               strokeLinecap="round"
               strokeDasharray={circumference}
-              strokeDashoffset={circumference * (1 - completed / 2)}
+              strokeDashoffset={circumference * (1 - completed / mealCount)}
               className="transition-[stroke-dashoffset] duration-500"
             />
           </svg>
-          <b className="text-[17px] font-extrabold tracking-[-0.4px] text-ink">{completed}/2</b>
-          <span className="sr-only">{completed} of 2 meals logged today</span>
+          <b className="text-[17px] font-extrabold tracking-[-0.4px] text-ink">
+            {completed}/{mealCount}
+          </b>
+          <span className="sr-only">
+            {completed} of {mealCount} meals logged today
+          </span>
         </div>
         <div>
           <strong className="block text-[13px] font-bold text-ink">
-            {completed === 2
-              ? "Both meals checked in"
-              : completed === 1
-                ? "One meal logged"
-                : "Your routine, at a glance"}
+            {headline}
           </strong>
-          <span className="mt-1 block text-[11px] text-[#8a988f]">
-            {completed === 2
-              ? "Two meals logged today"
-              : completed === 1
-                ? "One more meal to log"
-                : "Tap a meal when you finish it"}
-          </span>
+          <span className="mt-1 block text-[11px] text-[#8a988f]">{caption}</span>
         </div>
       </div>
 
       <div className="flex flex-col gap-2.5">
-        {([1, 2] as const).map((slot) => {
-          const log = slot === 1 ? logs.meal1 : logs.meal2;
+        {slots.map((slot) => {
+          const log = mealLogForSlot(snapshot.meals, today, slot);
           const template = templateFor(slot);
           const logged = Boolean(log);
           const name =
@@ -129,7 +153,9 @@ export function TodayCheckIn({ snapshot, today }: TodayCheckInProps) {
                 <Check className="h-3.5 w-3.5" />
               </span>
               <span className="min-w-0 flex-1">
-                <span className="block text-[12px] font-bold text-ink">Meal {slot}</span>
+                <span className="block text-[12px] font-bold text-ink">
+                  Meal {slot}
+                </span>
                 <span className="mt-0.5 block truncate text-[10px] text-[#97a399]">
                   {name}
                 </span>

@@ -25,11 +25,15 @@ import {
   windowKeys,
 } from "../lib/dates";
 import {
-  mealLogsForDate,
+  loggedMealCount,
+  mealLogForSlot,
   offPlanStatusForDate,
 } from "../lib/analytics/meals";
 import { formatWeight } from "../lib/units";
-import type { MealSlot } from "../types";
+import {
+  mealSlotsForCount,
+  type MealSlot,
+} from "../types";
 
 export function DailyJournalPage() {
   const snapshot = useSnapshot();
@@ -53,19 +57,24 @@ export function DailyJournalPage() {
     setParams(next, { replace: true });
   };
 
-  const logs = mealLogsForDate(snapshot.meals, selected);
+  const mealCount = snapshot.settings.mealsPerDay;
+  const slots = mealSlotsForCount(mealCount);
+  const logs = slots.map((slot) => ({
+    slot,
+    log: mealLogForSlot(snapshot.meals, selected, slot),
+  }));
   const offPlan = offPlanStatusForDate(snapshot.offPlanDays, selected);
   const weighIn = snapshot.weighIns.find((entry) => entry.date === selected);
   const note = snapshot.notes.find((entry) => entry.date === selected);
-  const completed = (logs.meal1 ? 1 : 0) + (logs.meal2 ? 1 : 0);
+  const completed = logs.filter((entry) => Boolean(entry.log)).length;
 
   const templateFor = (slot: MealSlot) => {
-    const index = snapshot.settings.sameMeal ? 0 : slot - 1;
-    return snapshot.templates[index];
+    const target = snapshot.settings.sameMeal ? 1 : slot;
+    return snapshot.templates.find((template) => template.slot === target);
   };
 
   const toggleMeal = async (slot: MealSlot) => {
-    const log = slot === 1 ? logs.meal1 : logs.meal2;
+    const log = mealLogForSlot(snapshot.meals, selected, slot);
     const template = templateFor(slot);
     if (!log && !template?.name.trim()) {
       openMealTemplate(slot);
@@ -86,13 +95,17 @@ export function DailyJournalPage() {
   };
 
   const lastFourteen = windowKeys(today, 14);
+  const levelFor = (checked: number): "full" | "partial" | "none" =>
+    checked >= mealCount ? "full" : checked > 0 ? "partial" : "none";
+  const calendarCompletionLabel =
+    mealCount === 1 ? "Meal logged" : "All meals";
 
   return (
     <>
       <PageHeader
         eyebrow="Daily consistency"
         title="Daily journal"
-        subtitle="One clear place for your weight, two meals, and any off-plan moments."
+        subtitle="One clear place for your weight, your meals, and any off-plan moments."
         actions={
           <div className="flex flex-wrap items-center gap-2">
             <button
@@ -132,18 +145,17 @@ export function DailyJournalPage() {
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div>
               <h2 id="journal-meals-title" className="card-title">
-                Your two meals
+                {mealCount === 1 ? "Your daily meal" : "Your daily meals"}
               </h2>
               <p className="card-sub">Track each serving with a single click</p>
             </div>
             <span className="rounded-lg bg-[#ecf7ef] px-2.5 py-1.5 text-[10px] font-bold text-[#43836a]">
-              {completed} / 2 logged
+              {completed} / {mealCount} logged
             </span>
           </div>
 
           <div className="mt-3 flex flex-col gap-2.5">
-            {([1, 2] as const).map((slot) => {
-              const log = slot === 1 ? logs.meal1 : logs.meal2;
+            {logs.map(({ slot, log }) => {
               const template = templateFor(slot);
               const logged = Boolean(log);
               const name = log?.name || template?.name || "No meal set up yet";
@@ -278,38 +290,72 @@ export function DailyJournalPage() {
         </div>
         <div className="mt-4 grid grid-cols-4 gap-2.5 sm:grid-cols-7">
           {lastFourteen.map((date) => {
-            const dayLogs = mealLogsForDate(snapshot.meals, date);
-            const checked = (dayLogs.meal1 ? 1 : 0) + (dayLogs.meal2 ? 1 : 0);
+            const checked = loggedMealCount(
+              snapshot.meals,
+              date,
+              mealCount,
+            );
             const hasWeight = snapshot.weighIns.some((entry) => entry.date === date);
             const dayOffPlan = offPlanStatusForDate(snapshot.offPlanDays, date);
+            const isToday = date === today;
             return (
               <button
                 key={date}
                 type="button"
                 className="day-cell"
+                data-level={levelFor(checked)}
                 data-active={selected === date}
-                aria-label={`${formatShortDate(date)}: ${checked} of 2 meals logged${hasWeight ? ", weight recorded" : ""}${dayOffPlan === "off" ? ", off-plan meal" : ""}`}
+                data-today={isToday}
+                data-offplan={dayOffPlan === "off"}
+                aria-label={`${formatShortDate(date)}${isToday ? " (today)" : ""}: ${checked} of ${mealCount} meals logged${hasWeight ? ", weight recorded" : ""}${dayOffPlan === "off" ? ", off-plan meal" : ""}`}
                 aria-current={selected === date ? "date" : undefined}
                 onClick={() => selectDate(date)}
               >
-                <div className="text-[10px] font-semibold text-[#91a096]">
-                  {formatWeekday(date)}
-                </div>
-                <div className="my-2 text-[18px] font-extrabold tracking-[-0.5px] text-ink">
+                <span className="day-cell-weekday">
+                  {isToday ? "Today" : formatWeekday(date)}
+                </span>
+                <span className="day-cell-number">
                   {Number(date.slice(8, 10))}
-                </div>
-                <div className="flex items-center justify-center gap-1 text-[10px] font-semibold text-[#69947c]">
-                  <span>{checked}/2</span>
+                </span>
+                <span className="day-cell-meta">
+                  <span className="day-cell-count">{checked}/{mealCount}</span>
                   {hasWeight && (
-                    <Scale className="h-3 w-3 text-[#88a294]" aria-label="weight recorded" />
+                    <Scale
+                      className="h-3 w-3 text-[#78998a]"
+                      aria-hidden="true"
+                    />
                   )}
                   {dayOffPlan === "off" && (
-                    <span className="h-[5px] w-[5px] rounded-full bg-[#bd725a]" aria-label="off-plan meal" />
+                    <span className="day-cell-offplan" aria-hidden="true" />
                   )}
-                </div>
+                </span>
               </button>
             );
           })}
+        </div>
+        <div className="day-legend">
+          <span className="day-legend-item">
+            <span className="day-legend-swatch" data-level="full" aria-hidden="true" />
+            {calendarCompletionLabel}
+          </span>
+          {mealCount > 1 && (
+            <span className="day-legend-item">
+              <span className="day-legend-swatch" data-level="partial" aria-hidden="true" />
+              Some meals
+            </span>
+          )}
+          <span className="day-legend-item">
+            <span className="day-legend-swatch" data-level="none" aria-hidden="true" />
+            No meals logged
+          </span>
+          <span className="day-legend-item">
+            <Scale className="h-3 w-3 text-[#78998a]" aria-hidden="true" />
+            Weigh-in
+          </span>
+          <span className="day-legend-item">
+            <span className="day-cell-offplan" aria-hidden="true" />
+            Off-plan
+          </span>
         </div>
       </section>
     </>

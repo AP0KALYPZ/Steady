@@ -1,6 +1,7 @@
 import type { WeeklyBlock } from "../../lib/analytics/meals";
 
 export function WeeklyBars({ blocks }: { blocks: WeeklyBlock[] }) {
+  const mealCount = blocks[0]?.mealsPerDay ?? 2;
   return (
     <div className="mt-7 flex flex-col gap-[18px]">
       {blocks.map((block) => {
@@ -35,8 +36,9 @@ export function WeeklyBars({ blocks }: { blocks: WeeklyBlock[] }) {
         );
       })}
       <p className="text-[10px] leading-relaxed text-[#9ba9a0]">
-        Percentages are served on days with at least one meal record. Unlogged
-        days are left out rather than counted as missed servings.
+        Percentages use {mealCount} scheduled {mealCount === 1 ? "serving" : "servings"}{" "}
+        on days with at least one meal record. Unlogged days are left out rather
+        than counted as missed servings.
       </p>
     </div>
   );

@@ -3,7 +3,7 @@ import { fireEvent, screen, within, waitFor } from "@testing-library/react";
 import { addDays, todayKey } from "../src/lib/dates";
 import { toKilograms } from "../src/lib/units";
 import { createDefaultSnapshot } from "../src/types";
-import { makeSnapshot, weighIn } from "./fixtures";
+import { makeSnapshot, meal, weighIn } from "./fixtures";
 import { renderApp, resetAppState } from "./helpers/renderApp";
 
 const today = todayKey();
@@ -155,6 +155,38 @@ describe("daily tracking", () => {
     expect(window.location.hash).toContain(`date=${yesterday}`);
   });
 
+  it("adapts every page when the daily meal count changes", async () => {
+    const { user, repo } = renderApp(
+      makeSnapshot({
+        weighIns: [weighIn(yesterday, 180)],
+        meals: [meal(today, 1), meal(today, 2)],
+      }),
+    );
+    await openOverview();
+
+    await user.click(screen.getByRole("link", { name: "Meal routine" }));
+    await screen.findByRole("heading", { name: "Your carnivore routine" });
+    const countGroup = screen.getByRole("group", { name: "Meals per day" });
+    await user.click(within(countGroup).getByRole("button", { name: "3" }));
+    await screen.findByText(/3 daily meals/i);
+    expect((await repo.load()).settings.mealsPerDay).toBe(3);
+
+    await user.click(screen.getByRole("link", { name: "Overview" }));
+    await openOverview();
+    expect(
+      screen.getByRole("button", { name: /Meal 3: not logged/i }),
+    ).toBeInTheDocument();
+    expect(screen.getByText("2 of 3 meals logged")).toBeInTheDocument();
+
+    await user.click(
+      screen.getByRole("button", { name: /Meal 3: not logged/i }),
+    );
+    await screen.findByText("All meals checked in");
+    const saved = await repo.load();
+    expect(saved.meals).toHaveLength(3);
+    expect(saved.meals.map((entry) => entry.slot)).toEqual([1, 2, 3]);
+  });
+
   it("shows honest empty states rather than fabricated analytics", async () => {
     renderApp(makeSnapshot({ weighIns: [] }));
     await openOverview();
@@ -187,6 +219,8 @@ describe("onboarding", () => {
     const routine = await screen.findByRole("dialog", {
       name: /Define your routine/i,
     });
+    const meals = within(routine).getByRole("group", { name: "Meals per day" });
+    await user.click(within(meals).getByRole("button", { name: "3" }));
     await user.type(
       within(routine).getByLabelText(/Your recurring meal/i),
       "Beef, eggs and cheddar",
@@ -212,6 +246,8 @@ describe("onboarding", () => {
       toKilograms(150, "lb"),
       9,
     );
+    expect(saved.settings.mealsPerDay).toBe(3);
+    expect(saved.templates).toHaveLength(6);
     expect(saved.templates[0].name).toBe("Beef, eggs and cheddar");
   });
 });

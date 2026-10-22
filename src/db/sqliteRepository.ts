@@ -11,7 +11,13 @@ import type {
   WeighIn,
   DailyNote,
 } from "../types";
-import { createDefaultSnapshot } from "../types";
+import {
+  createDefaultSnapshot,
+  MAX_MEALS_PER_DAY,
+  MEAL_SLOTS,
+  MIN_MEALS_PER_DAY,
+  normalizeMealsPerDay,
+} from "../types";
 import { isValidDateKey } from "../lib/dates";
 import { WEIGHT_MAX_KG } from "../lib/units";
 import type { SqlDriver } from "./driver";
@@ -22,6 +28,7 @@ interface SettingsRow {
   start_weight_kg: number | null;
   goal_weight_kg: number | null;
   same_meal: number | string;
+  meals_per_day: number | string;
   onboarded: number | string;
 }
 
@@ -62,6 +69,13 @@ interface NoteRow {
 
 const nowIso = (): string => new Date().toISOString();
 
+function toMealSlot(value: number | string): MealSlot {
+  const numeric = Number(value);
+  return (MEAL_SLOTS as readonly number[]).includes(numeric)
+    ? (numeric as MealSlot)
+    : 1;
+}
+
 function assertPositiveWeight(weightKg: number): void {
   if (!Number.isFinite(weightKg) || weightKg <= 0 || weightKg > WEIGHT_MAX_KG + 0.001) {
     throw new Error("Enter a valid, realistic weight.");
@@ -87,7 +101,8 @@ export class SqliteRepository implements SteadyRepository {
     const [settingsRows, weightRows, mealRows, templateRows, offPlanRows, noteRows] =
       await Promise.all([
         this.driver.select<SettingsRow>(
-          `SELECT unit, start_weight_kg, goal_weight_kg, same_meal, onboarded
+          `SELECT unit, start_weight_kg, goal_weight_kg, same_meal,
+                  meals_per_day, onboarded
              FROM settings WHERE id = 1`,
         ),
         this.driver.select<WeightRow>(
@@ -124,6 +139,7 @@ export class SqliteRepository implements SteadyRepository {
               ? null
               : Number(settingsRow.goal_weight_kg),
           sameMeal: toBoolean(settingsRow.same_meal),
+          mealsPerDay: normalizeMealsPerDay(settingsRow.meals_per_day),
           onboarded: toBoolean(settingsRow.onboarded),
         }
       : defaults.settings;
@@ -135,7 +151,7 @@ export class SqliteRepository implements SteadyRepository {
 
     const meals: MealLog[] = mealRows.map((row) => ({
       date: row.date,
-      slot: row.slot === 2 ? 2 : 1,
+      slot: toMealSlot(row.slot),
       loggedAt: row.logged_at,
       name: row.snapshot_name,
       ingredients: row.snapshot_ingredients,
@@ -145,7 +161,7 @@ export class SqliteRepository implements SteadyRepository {
       fat: row.snapshot_fat == null ? null : Number(row.snapshot_fat),
     }));
 
-    const templates: MealTemplate[] = [1, 2].map((slot) => {
+    const templates: MealTemplate[] = MEAL_SLOTS.map((slot) => {
       const row = templateRows.find((item) => Number(item.slot) === slot);
       const fallback = defaults.templates[slot - 1];
       return row
@@ -183,16 +199,25 @@ export class SqliteRepository implements SteadyRepository {
     ) {
       throw new Error("Your goal must be below your starting weight.");
     }
+    const mealsPerDay = settings.mealsPerDay;
+    if (
+      !Number.isInteger(mealsPerDay) ||
+      mealsPerDay < MIN_MEALS_PER_DAY ||
+      mealsPerDay > MAX_MEALS_PER_DAY
+    ) {
+      throw new Error("Choose between 1 and 6 meals per day.");
+    }
     await this.driver.execute(
       `UPDATE settings
           SET unit = ?, start_weight_kg = ?, goal_weight_kg = ?,
-              same_meal = ?, onboarded = ?, updated_at = ?
+              same_meal = ?, meals_per_day = ?, onboarded = ?, updated_at = ?
         WHERE id = 1`,
       [
         settings.unit,
         settings.startWeightKg,
         settings.goalWeightKg,
         settings.sameMeal ? 1 : 0,
+        mealsPerDay,
         settings.onboarded ? 1 : 0,
         nowIso(),
       ],
@@ -229,7 +254,13 @@ export class SqliteRepository implements SteadyRepository {
     logged: boolean,
   ): Promise<void> {
     assertDate(date);
-    if (slot !== 1 && slot !== 2) throw new Error("Invalid meal slot.");
+    if (
+      !Number.isInteger(slot) ||
+      slot < MIN_MEALS_PER_DAY ||
+      slot > MAX_MEALS_PER_DAY
+    ) {
+      throw new Error("Invalid meal slot.");
+    }
 
     if (!logged) {
       await this.driver.execute(
@@ -239,12 +270,21 @@ export class SqliteRepository implements SteadyRepository {
       return;
     }
 
-    const settingsRows = await this.driver.select<{ same_meal: number | string }>(
-      `SELECT same_meal FROM settings WHERE id = 1`,
+    const settingsRows = await this.driver.select<{
+      same_meal: number | string;
+      meals_per_day: number | string;
+    }>(
+      `SELECT same_meal, meals_per_day FROM settings WHERE id = 1`,
     );
     const sameMeal = settingsRows[0]
       ? toBoolean(settingsRows[0].same_meal)
       : true;
+    const mealsPerDay = settingsRows[0]
+      ? normalizeMealsPerDay(settingsRows[0].meals_per_day)
+      : 2;
+    if (slot > mealsPerDay) {
+      throw new Error("That meal is outside your current daily routine.");
+    }
     const templateSlot = sameMeal ? 1 : slot;
     const templateRows = await this.driver.select<TemplateRow>(
       `SELECT slot, name, ingredients, calories, protein, fat
@@ -326,7 +366,11 @@ export class SqliteRepository implements SteadyRepository {
   }
 
   async saveTemplate(template: MealTemplateInput): Promise<void> {
-    if (template.slot !== 1 && template.slot !== 2) {
+    if (
+      !Number.isInteger(template.slot) ||
+      template.slot < MIN_MEALS_PER_DAY ||
+      template.slot > MAX_MEALS_PER_DAY
+    ) {
       throw new Error("Invalid meal slot.");
     }
     const name = template.name.trim();
@@ -380,13 +424,15 @@ export class SqliteRepository implements SteadyRepository {
 
       await this.driver.execute(
         `INSERT INTO settings
-          (id, unit, start_weight_kg, goal_weight_kg, same_meal, onboarded, updated_at)
-         VALUES (1, ?, ?, ?, ?, ?, ?)`,
+          (id, unit, start_weight_kg, goal_weight_kg, same_meal,
+           meals_per_day, onboarded, updated_at)
+         VALUES (1, ?, ?, ?, ?, ?, ?, ?)`,
         [
           snapshot.settings.unit,
           snapshot.settings.startWeightKg,
           snapshot.settings.goalWeightKg,
           snapshot.settings.sameMeal ? 1 : 0,
+          normalizeMealsPerDay(snapshot.settings.mealsPerDay),
           1,
           nowIso(),
         ],
@@ -459,13 +505,15 @@ export class SqliteRepository implements SteadyRepository {
       await this.driver.execute(`DELETE FROM settings`);
       await this.driver.execute(
         `INSERT INTO settings
-          (id, unit, start_weight_kg, goal_weight_kg, same_meal, onboarded, updated_at)
-         VALUES (1, ?, ?, ?, ?, ?, ?)`,
+          (id, unit, start_weight_kg, goal_weight_kg, same_meal,
+           meals_per_day, onboarded, updated_at)
+         VALUES (1, ?, ?, ?, ?, ?, ?, ?)`,
         [
           snapshot.settings.unit,
           snapshot.settings.startWeightKg,
           snapshot.settings.goalWeightKg,
           snapshot.settings.sameMeal ? 1 : 0,
+          normalizeMealsPerDay(snapshot.settings.mealsPerDay),
           snapshot.settings.onboarded ? 1 : 0,
           nowIso(),
         ],
@@ -535,14 +583,18 @@ export class SqliteRepository implements SteadyRepository {
     await this.driver.execute(`DELETE FROM meal_templates`);
     await this.driver.execute(`DELETE FROM settings`);
     await this.driver.execute(
-      `INSERT INTO settings (id, unit, start_weight_kg, goal_weight_kg, same_meal, onboarded, updated_at)
-       VALUES (1, 'lb', NULL, NULL, 1, 0, ?)`,
+      `INSERT INTO settings
+        (id, unit, start_weight_kg, goal_weight_kg, same_meal,
+         meals_per_day, onboarded, updated_at)
+       VALUES (1, 'lb', NULL, NULL, 1, 2, 0, ?)`,
       [nowIso()],
     );
-    await this.driver.execute(
-      `INSERT INTO meal_templates (slot, name, ingredients, updated_at)
-       VALUES (1, '', '', ?), (2, '', '', ?)`,
-      [nowIso(), nowIso()],
-    );
+    for (const slot of MEAL_SLOTS) {
+      await this.driver.execute(
+        `INSERT INTO meal_templates (slot, name, ingredients, updated_at)
+         VALUES (?, '', '', ?)`,
+        [slot, nowIso()],
+      );
+    }
   }
 }

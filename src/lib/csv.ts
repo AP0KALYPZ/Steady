@@ -32,25 +32,30 @@ export function buildCsv(snapshot: AppSnapshot): string {
 
   const mealsByDate = new Map<
     string,
-    { meal1: (typeof snapshot.meals)[number] | null; meal2: (typeof snapshot.meals)[number] | null }
+    Map<number, (typeof snapshot.meals)[number]>
   >();
   for (const log of snapshot.meals) {
-    const record = mealsByDate.get(log.date) ?? {
-      meal1: null,
-      meal2: null,
-    };
-    if (log.slot === 1) record.meal1 = log;
-    if (log.slot === 2) record.meal2 = log;
+    const record = mealsByDate.get(log.date) ?? new Map();
+    record.set(log.slot, log);
     mealsByDate.set(log.date, record);
   }
+
+  // Include the active routine plus any preserved historical slots so a
+  // reduced meal count never drops older records from the export.
+  const mealCount = Math.max(
+    snapshot.settings.mealsPerDay,
+    ...snapshot.meals.map((log) => log.slot),
+    1,
+  );
+  const mealHeaders = Array.from({ length: mealCount }, (_, index) => {
+    const slot = index + 1;
+    return [`Meal ${slot} logged`, `Meal ${slot} completed at`];
+  }).flat();
 
   const header = [
     "Date",
     `Weight (${unit})`,
-    "Meal 1 logged",
-    "Meal 1 completed at",
-    "Meal 2 logged",
-    "Meal 2 completed at",
+    ...mealHeaders,
     "Off-plan status",
     "Daily note",
   ];
@@ -60,16 +65,15 @@ export function buildCsv(snapshot: AppSnapshot): string {
     .map((date) => {
       const weight = weightByDate.get(date);
       const record = mealsByDate.get(date);
-      const meal1 = record?.meal1 ?? null;
-      const meal2 = record?.meal2 ?? null;
+      const mealCells = Array.from({ length: mealCount }, (_, index) => {
+        const log = record?.get(index + 1) ?? null;
+        return [record ? (log ? "yes" : "no") : "", log?.loggedAt ?? ""];
+      }).flat();
       const offPlan = offPlanByDate.get(date);
       return [
         date,
         weight == null ? "" : formatWeightValue(weight, unit),
-        record ? (meal1 ? "yes" : "no") : "",
-        meal1?.loggedAt ?? "",
-        record ? (meal2 ? "yes" : "no") : "",
-        meal2?.loggedAt ?? "",
+        ...mealCells,
         offPlan === "on"
           ? "on plan"
           : offPlan === "off"

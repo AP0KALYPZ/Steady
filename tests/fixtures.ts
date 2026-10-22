@@ -54,27 +54,24 @@ export function makeSnapshot(
       startWeightKg: lbs(184.5),
       goalWeightKg: lbs(150),
       sameMeal: true,
+      mealsPerDay: 2,
       onboarded: true,
       ...overrides.settings,
     },
-    templates: overrides.templates ?? [
-      {
-        slot: 1,
-        name: "Beef plate",
-        ingredients: "Beef, eggs, cheddar",
-        calories: 620,
-        protein: 52,
-        fat: 40,
-      },
-      {
-        slot: 2,
-        name: "",
-        ingredients: "",
-        calories: null,
-        protein: null,
-        fat: null,
-      },
-    ],
+    templates:
+      overrides.templates ??
+      createDefaultSnapshot().templates.map((template) =>
+        template.slot === 1
+          ? {
+              ...template,
+              name: "Beef plate",
+              ingredients: "Beef, eggs, cheddar",
+              calories: 620,
+              protein: 52,
+              fat: 40,
+            }
+          : template,
+      ),
     weighIns: overrides.weighIns ?? [],
     meals: overrides.meals ?? [],
     offPlanDays: overrides.offPlanDays ?? [],

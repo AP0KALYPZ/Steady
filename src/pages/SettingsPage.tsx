@@ -386,7 +386,7 @@ export function SettingsPage() {
                 <ShieldCheck className="h-3.5 w-3.5" aria-hidden="true" />
                 Private by design · fully offline
               </span>
-              <span>STEADY {appVersion()} · schema 1</span>
+              <span>STEADY {appVersion()} · schema 2</span>
             </div>
           </div>
         </section>
