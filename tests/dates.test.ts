@@ -1,7 +1,10 @@
 import { describe, expect, it } from "vitest";
 import {
   addDays,
+  addMonths,
   describeJournalDate,
+  formatMonthYear,
+  monthGridKeys,
   differenceInDays,
   formatShortDate,
   isValidDateKey,
@@ -61,6 +64,29 @@ describe("calendar date keys", () => {
     ]);
     expect(windowKeys("2026-10-22", 1)).toEqual(["2026-10-22"]);
     expect(() => windowKeys("2026-10-22", 0)).toThrow();
+  });
+
+  it("moves across month and year boundaries", () => {
+    expect(addMonths("2026-01", -1)).toBe("2025-12");
+    expect(addMonths("2026-12", 1)).toBe("2027-01");
+    expect(addMonths("2024-02", 1)).toBe("2024-03");
+    expect(formatMonthYear("2026-10")).toBe("October 2026");
+    expect(() => addMonths("2026-13", 1)).toThrow();
+  });
+
+  it("builds a Monday-first month grid padded to whole weeks", () => {
+    const october = monthGridKeys("2026-10");
+    expect(october).toHaveLength(35);
+    expect(october.slice(0, 3)).toEqual([null, null, null]);
+    expect(october[3]).toBe("2026-10-01");
+    expect(october[33]).toBe("2026-10-31");
+    expect(october[34]).toBeNull();
+
+    const february = monthGridKeys("2026-02");
+    expect(february.slice(0, 6)).toEqual([null, null, null, null, null, null]);
+    expect(february[6]).toBe("2026-02-01");
+    expect(february[33]).toBe("2026-02-28");
+    expect(february).toHaveLength(35);
   });
 
   it("finds the Monday that starts a week", () => {

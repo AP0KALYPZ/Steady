@@ -18,6 +18,7 @@ export function buildCsv(snapshot: AppSnapshot): string {
   for (const entry of snapshot.weighIns) dates.add(entry.date);
   for (const entry of snapshot.meals) dates.add(entry.date);
   for (const entry of snapshot.offPlanDays) dates.add(entry.date);
+  for (const date of snapshot.fastingDays) dates.add(date);
   for (const entry of snapshot.notes) dates.add(entry.date);
 
   const weightByDate = new Map(
@@ -29,6 +30,7 @@ export function buildCsv(snapshot: AppSnapshot): string {
   const offPlanByDate = new Map(
     snapshot.offPlanDays.map((entry) => [entry.date, entry.status] as const),
   );
+  const fastingDates = new Set(snapshot.fastingDays);
 
   const mealsByDate = new Map<
     string,
@@ -56,6 +58,7 @@ export function buildCsv(snapshot: AppSnapshot): string {
     "Date",
     `Weight (${unit})`,
     ...mealHeaders,
+    "Fasting day",
     "Off-plan status",
     "Daily note",
   ];
@@ -74,6 +77,7 @@ export function buildCsv(snapshot: AppSnapshot): string {
         date,
         weight == null ? "" : formatWeightValue(weight, unit),
         ...mealCells,
+        fastingDates.has(date) ? "yes" : "",
         offPlan === "on"
           ? "on plan"
           : offPlan === "off"

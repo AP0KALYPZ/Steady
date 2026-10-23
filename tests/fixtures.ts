@@ -75,6 +75,7 @@ export function makeSnapshot(
     weighIns: overrides.weighIns ?? [],
     meals: overrides.meals ?? [],
     offPlanDays: overrides.offPlanDays ?? [],
+    fastingDays: overrides.fastingDays ?? [],
     notes: overrides.notes ?? [],
   };
 }

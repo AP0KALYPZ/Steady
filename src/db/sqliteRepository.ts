@@ -67,6 +67,10 @@ interface NoteRow {
   body: string;
 }
 
+interface FastingRow {
+  date: string;
+}
+
 const nowIso = (): string => new Date().toISOString();
 
 function toMealSlot(value: number | string): MealSlot {
@@ -98,8 +102,15 @@ export class SqliteRepository implements SteadyRepository {
   constructor(private readonly driver: SqlDriver) {}
 
   async load(): Promise<AppSnapshot> {
-    const [settingsRows, weightRows, mealRows, templateRows, offPlanRows, noteRows] =
-      await Promise.all([
+    const [
+      settingsRows,
+      weightRows,
+      mealRows,
+      templateRows,
+      offPlanRows,
+      fastingRows,
+      noteRows,
+    ] = await Promise.all([
         this.driver.select<SettingsRow>(
           `SELECT unit, start_weight_kg, goal_weight_kg, same_meal,
                   meals_per_day, onboarded
@@ -119,6 +130,9 @@ export class SqliteRepository implements SteadyRepository {
         ),
         this.driver.select<OffPlanRow>(
           `SELECT date, status FROM off_plan_days ORDER BY date ASC`,
+        ),
+        this.driver.select<FastingRow>(
+          `SELECT date FROM fasting_days ORDER BY date ASC`,
         ),
         this.driver.select<NoteRow>(
           `SELECT date, body FROM notes ORDER BY date ASC`,
@@ -183,12 +197,22 @@ export class SqliteRepository implements SteadyRepository {
         status: row.status as OffPlanStatus,
       }));
 
+    const fastingDays = fastingRows.map((row) => row.date);
+
     const notes: DailyNote[] = noteRows.map((row) => ({
       date: row.date,
       body: row.body,
     }));
 
-    return { settings, weighIns, meals, templates, offPlanDays, notes };
+    return {
+      settings,
+      weighIns,
+      meals,
+      templates,
+      offPlanDays,
+      fastingDays,
+      notes,
+    };
   }
 
   async saveSettings(settings: AppSettings): Promise<void> {
@@ -345,6 +369,20 @@ export class SqliteRepository implements SteadyRepository {
     );
   }
 
+  async setFastingDay(date: string, fasting: boolean): Promise<void> {
+    assertDate(date);
+    if (fasting) {
+      await this.driver.execute(
+        `INSERT INTO fasting_days (date, updated_at)
+         VALUES (?, ?)
+         ON CONFLICT(date) DO UPDATE SET updated_at = excluded.updated_at`,
+        [date, nowIso()],
+      );
+      return;
+    }
+    await this.driver.execute(`DELETE FROM fasting_days WHERE date = ?`, [date]);
+  }
+
   async saveNote(date: string, body: string | null): Promise<void> {
     assertDate(date);
     const trimmed = (body ?? "").trim();
@@ -418,6 +456,7 @@ export class SqliteRepository implements SteadyRepository {
       await this.driver.execute(`DELETE FROM weight_entries`);
       await this.driver.execute(`DELETE FROM meal_logs`);
       await this.driver.execute(`DELETE FROM off_plan_days`);
+      await this.driver.execute(`DELETE FROM fasting_days`);
       await this.driver.execute(`DELETE FROM notes`);
       await this.driver.execute(`DELETE FROM meal_templates`);
       await this.driver.execute(`DELETE FROM settings`);
@@ -483,6 +522,12 @@ export class SqliteRepository implements SteadyRepository {
           [entry.date, entry.status, nowIso()],
         );
       }
+      for (const date of snapshot.fastingDays ?? []) {
+        await this.driver.execute(
+          `INSERT INTO fasting_days (date, updated_at) VALUES (?, ?)`,
+          [date, nowIso()],
+        );
+      }
       for (const note of snapshot.notes) {
         await this.driver.execute(
           `INSERT INTO notes (date, body, updated_at) VALUES (?, ?, ?)`,
@@ -500,6 +545,7 @@ export class SqliteRepository implements SteadyRepository {
       await this.driver.execute(`DELETE FROM weight_entries`);
       await this.driver.execute(`DELETE FROM meal_logs`);
       await this.driver.execute(`DELETE FROM off_plan_days`);
+      await this.driver.execute(`DELETE FROM fasting_days`);
       await this.driver.execute(`DELETE FROM notes`);
       await this.driver.execute(`DELETE FROM meal_templates`);
       await this.driver.execute(`DELETE FROM settings`);
@@ -564,6 +610,12 @@ export class SqliteRepository implements SteadyRepository {
           [entry.date, entry.status, nowIso()],
         );
       }
+      for (const date of snapshot.fastingDays ?? []) {
+        await this.driver.execute(
+          `INSERT INTO fasting_days (date, updated_at) VALUES (?, ?)`,
+          [date, nowIso()],
+        );
+      }
       for (const note of snapshot.notes) {
         await this.driver.execute(
           `INSERT INTO notes (date, body, updated_at) VALUES (?, ?, ?)`,
@@ -579,6 +631,7 @@ export class SqliteRepository implements SteadyRepository {
     await this.driver.execute(`DELETE FROM weight_entries`);
     await this.driver.execute(`DELETE FROM meal_logs`);
     await this.driver.execute(`DELETE FROM off_plan_days`);
+    await this.driver.execute(`DELETE FROM fasting_days`);
     await this.driver.execute(`DELETE FROM notes`);
     await this.driver.execute(`DELETE FROM meal_templates`);
     await this.driver.execute(`DELETE FROM settings`);

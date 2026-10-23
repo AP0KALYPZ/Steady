@@ -323,6 +323,21 @@ describe("off-plan and notes", () => {
     expect(snapshot.meals).toHaveLength(1);
   });
 
+  it("records and clears intentional fasting days", async () => {
+    await repo.setFastingDay("2026-01-02", true);
+    await repo.setFastingDay("2026-01-01", true);
+    await repo.setFastingDay("2026-01-02", true);
+    let snapshot = await repo.load();
+    expect(snapshot.fastingDays).toEqual(["2026-01-01", "2026-01-02"]);
+
+    await repo.setFastingDay("2026-01-02", false);
+    snapshot = await repo.load();
+    expect(snapshot.fastingDays).toEqual(["2026-01-01"]);
+    await expect(
+      repo.setFastingDay("2026-02-30", true),
+    ).rejects.toThrow(/calendar/);
+  });
+
   it("saves, trims and clears per-date notes", async () => {
     await repo.saveNote("2026-01-01", "  Good energy  ");
     let snapshot = await repo.load();
@@ -356,6 +371,7 @@ describe("restore and reset", () => {
       weighIns: [weighIn("2026-02-01", 198), weighIn("2026-02-02", 197)],
       meals: [meal("2026-02-02", 1)],
       offPlanDays: [{ date: "2026-02-02", status: "off" }],
+      fastingDays: ["2026-02-01"],
       notes: [note("2026-02-02", "Restored")],
     });
 
@@ -365,6 +381,7 @@ describe("restore and reset", () => {
     expect(snapshot.weighIns).toHaveLength(2);
     expect(snapshot.meals).toHaveLength(1);
     expect(snapshot.offPlanDays).toHaveLength(1);
+    expect(snapshot.fastingDays).toEqual(["2026-02-01"]);
     expect(snapshot.notes).toHaveLength(1);
     expect(snapshot.templates[0].name).toBe("Beef plate");
   });
@@ -421,6 +438,7 @@ describe("restore and reset", () => {
     await seedTemplate();
     await repo.upsertWeighIn("2026-01-01", 80);
     await repo.setOffPlan("2026-01-01", "off");
+    await repo.setFastingDay("2026-01-02", true);
     await repo.saveNote("2026-01-01", "x");
     await repo.saveSettings({
       unit: "kg",
@@ -444,6 +462,7 @@ describe("restore and reset", () => {
     expect(snapshot.weighIns).toEqual([]);
     expect(snapshot.meals).toEqual([]);
     expect(snapshot.offPlanDays).toEqual([]);
+    expect(snapshot.fastingDays).toEqual([]);
     expect(snapshot.notes).toEqual([]);
     expect(snapshot.templates.every((template) => template.name === "")).toBe(
       true,

@@ -29,6 +29,7 @@ export interface AppActions {
   deleteWeighIn(date: string): Promise<void>;
   setMealLogged(date: string, slot: MealSlot, logged: boolean): Promise<void>;
   setOffPlan(date: string, status: OffPlanStatus | null): Promise<void>;
+  setFastingDay(date: string, fasting: boolean): Promise<void>;
   saveNote(date: string, body: string | null): Promise<void>;
   saveTemplate(template: MealTemplateInput): Promise<void>;
   importSnapshot(snapshot: AppSnapshot): Promise<void>;
@@ -123,6 +124,9 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
       },
       async setOffPlan(date, status) {
         await run((repo) => repo.setOffPlan(date, status));
+      },
+      async setFastingDay(date, fasting) {
+        await run((repo) => repo.setFastingDay(date, fasting));
       },
       async saveNote(date, body) {
         await run((repo) => repo.saveNote(date, body));

@@ -140,11 +140,26 @@ export function offPlanStatusForDate(
 
 export type HeatLevel = "none" | "partial" | "full";
 
+export function isFastingDay(fastingDays: string[], date: string): boolean {
+  return fastingDays.includes(date);
+}
+
+/** Count intentionally recorded fasting days in an inclusive window. */
+export function summarizeFasting(
+  fastingDays: string[],
+  endDate: string,
+  days: number,
+): number {
+  const window = new Set(windowKeys(endDate, days));
+  return new Set(fastingDays.filter((date) => window.has(date))).size;
+}
+
 export interface HeatCell {
   date: string;
   level: HeatLevel;
   loggedCount: number;
   offPlanStatus: OffPlanStatus | null;
+  isFasting: boolean;
   isToday: boolean;
   isFuture: boolean;
 }
@@ -158,8 +173,10 @@ export function buildConsistencyHeatmap(
   offPlanDays: OffPlanDay[],
   today: string,
   mealsPerDay: number,
+  fastingDays: string[] = [],
 ): HeatCell[] {
   const scheduled = normalizeMealsPerDay(mealsPerDay);
+  const fasting = new Set(fastingDays);
   const keys = fourWeekCalendarKeys(today);
   const mealsByDate = new Map<string, Set<MealSlot>>();
   for (const log of meals) {
@@ -185,6 +202,7 @@ export function buildConsistencyHeatmap(
             ? "partial"
             : "none",
       offPlanStatus: offByDate.get(date) ?? null,
+      isFasting: fasting.has(date),
       isToday: date === today,
       isFuture: date > today,
     };

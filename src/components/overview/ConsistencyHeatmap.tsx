@@ -1,4 +1,5 @@
 import { Link, useNavigate } from "react-router-dom";
+import { Moon } from "lucide-react";
 import type { AppSnapshot } from "../../types";
 import { buildConsistencyHeatmap } from "../../lib/analytics/meals";
 import { formatLongDateWithYear } from "../../lib/dates";
@@ -19,6 +20,7 @@ export function ConsistencyHeatmap({
     snapshot.offPlanDays,
     today,
     mealCount,
+    snapshot.fastingDays,
   );
 
   return (
@@ -40,8 +42,9 @@ export function ConsistencyHeatmap({
             </div>
           ))}
           {cells.map((cell) => {
-            const mealCopy =
-              cell.loggedCount === mealCount
+            const mealCopy = cell.isFasting
+              ? "fasting day, no meals expected"
+              : cell.loggedCount === mealCount
                 ? mealCount === 1
                   ? "meal logged"
                   : "all meals logged"
@@ -60,6 +63,7 @@ export function ConsistencyHeatmap({
                 type="button"
                 className="heat-cell"
                 data-level={cell.level}
+                data-fasting={cell.isFasting}
                 data-selected={cell.isToday}
                 disabled={cell.isFuture}
                 onClick={() => navigate(`/journal?date=${cell.date}`)}
@@ -68,10 +72,17 @@ export function ConsistencyHeatmap({
                   cell.offPlanStatus === "off" ? " · off-plan" : ""
                 }`}
               >
-                {cell.offPlanStatus === "off" && (
-                  <span className="heat-mark" aria-hidden="true" />
+                {cell.isFasting ? (
+                  <Moon
+                    className="absolute inset-0 m-auto h-3 w-3 text-[#66559c]"
+                    aria-hidden="true"
+                  />
+                ) : (
+                  cell.offPlanStatus === "off" && (
+                    <span className="heat-mark" aria-hidden="true" />
+                  )
                 )}
-                {cell.loggedCount > 0 && (
+                {cell.loggedCount > 0 && !cell.isFasting && (
                   <span
                     aria-hidden="true"
                     className="absolute inset-x-0 bottom-[3px] text-center text-[9px] font-extrabold leading-none"
@@ -102,6 +113,9 @@ export function ConsistencyHeatmap({
         )}
         <span className="inline-flex items-center gap-1.5">
           <span className="h-[5px] w-[5px] rounded-full bg-[#bd725a]" aria-hidden="true" /> Off-plan
+        </span>
+        <span className="inline-flex items-center gap-1.5 text-[#7d70a4]">
+          <Moon className="h-3 w-3" aria-hidden="true" /> Fasting
         </span>
       </div>
     </section>

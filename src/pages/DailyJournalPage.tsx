@@ -4,6 +4,7 @@ import {
   Check,
   ChevronLeft,
   ChevronRight,
+  Moon,
   PenLine,
   Plus,
   Scale,
@@ -15,16 +16,21 @@ import { useToast } from "../components/ui/Toast";
 import { PageHeader } from "../components/layout/PageHeader";
 import { Button } from "../components/ui/Button";
 import { OffPlanControl } from "../components/meals/OffPlanControl";
+import { FastingControl } from "../components/meals/FastingControl";
 import {
   addDays,
+  addMonths,
   describeJournalDate,
   formatLoggedTime,
+  formatMonthYear,
   formatShortDate,
   formatWeekday,
   isValidDateKey,
-  windowKeys,
+  monthGridKeys,
+  monthKey,
 } from "../lib/dates";
 import {
+  isFastingDay,
   loggedMealCount,
   mealLogForSlot,
   offPlanStatusForDate,
@@ -49,9 +55,11 @@ export function DailyJournalPage() {
     requested && isValidDateKey(requested) && requested <= today
       ? requested
       : today;
+  const [visibleMonth, setVisibleMonth] = useState(monthKey(selected));
 
   const selectDate = (date: string) => {
     if (date > today) return;
+    setVisibleMonth(monthKey(date));
     const next = new URLSearchParams(params);
     next.set("date", date);
     setParams(next, { replace: true });
@@ -64,6 +72,7 @@ export function DailyJournalPage() {
     log: mealLogForSlot(snapshot.meals, selected, slot),
   }));
   const offPlan = offPlanStatusForDate(snapshot.offPlanDays, selected);
+  const fasting = isFastingDay(snapshot.fastingDays, selected);
   const weighIn = snapshot.weighIns.find((entry) => entry.date === selected);
   const note = snapshot.notes.find((entry) => entry.date === selected);
   const completed = logs.filter((entry) => Boolean(entry.log)).length;
@@ -94,7 +103,8 @@ export function DailyJournalPage() {
     }
   };
 
-  const lastFourteen = windowKeys(today, 14);
+  const monthCells = monthGridKeys(visibleMonth);
+  const currentMonth = monthKey(today);
   const levelFor = (checked: number): "full" | "partial" | "none" =>
     checked >= mealCount ? "full" : checked > 0 ? "partial" : "none";
   const calendarCompletionLabel =
@@ -105,7 +115,7 @@ export function DailyJournalPage() {
       <PageHeader
         eyebrow="Daily consistency"
         title="Daily journal"
-        subtitle="One clear place for your weight, your meals, and any off-plan moments."
+        subtitle="One clear place for your weight, meals, fasting days, and off-plan moments."
         actions={
           <div className="flex flex-wrap items-center gap-2">
             <button
@@ -149,11 +159,34 @@ export function DailyJournalPage() {
               </h2>
               <p className="card-sub">Track each serving with a single click</p>
             </div>
-            <span className="rounded-lg bg-[#ecf7ef] px-2.5 py-1.5 text-[10px] font-bold text-[#43836a]">
-              {completed} / {mealCount} logged
+            <span
+              className={
+                fasting
+                  ? "rounded-lg bg-[#eee9f9] px-2.5 py-1.5 text-[10px] font-bold text-[#5b4b91]"
+                  : "rounded-lg bg-[#ecf7ef] px-2.5 py-1.5 text-[10px] font-bold text-[#43836a]"
+              }
+            >
+              {fasting ? "Fasting day" : `${completed} / ${mealCount} logged`}
             </span>
           </div>
 
+          <FastingControl date={selected} fasting={fasting} variant="full" />
+
+          {fasting ? (
+            <div className="mt-4 flex flex-1 flex-col items-center justify-center rounded-xl border border-[#e4ddf4] bg-[#faf8ff] px-5 py-10 text-center">
+              <Moon
+                className="h-7 w-7 text-[#7c6caf]"
+                aria-hidden="true"
+              />
+              <strong className="mt-3 text-[14px] font-bold text-ink">
+                No meals expected today
+              </strong>
+              <span className="mt-1 max-w-[280px] text-[11px] leading-relaxed text-[#8a809d]">
+                This day is recorded as an intentional fast. Undo the fast above
+                if you decide to eat and log meals.
+              </span>
+            </div>
+          ) : (
           <div className="mt-3 flex flex-col gap-2.5">
             {logs.map(({ slot, log }) => {
               const template = templateFor(slot);
@@ -214,6 +247,7 @@ export function DailyJournalPage() {
               );
             })}
           </div>
+          )}
 
           <hr className="my-6 border-[#edf1ec]" />
 
@@ -282,14 +316,65 @@ export function DailyJournalPage() {
       </div>
 
       <section className="surface mt-[19px] p-5 sm:p-6" aria-labelledby="journal-history-title">
-        <div className="flex flex-wrap items-start justify-between gap-2">
-          <h2 id="journal-history-title" className="card-title">
-            Last 14 days
-          </h2>
-          <span className="text-[11px] text-[#9aa79f]">Choose a day to edit it</span>
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <h2 id="journal-history-title" className="card-title">
+              Calendar
+            </h2>
+            <p className="card-sub">Browse any month and choose a day to edit it</p>
+          </div>
+          <div className="flex flex-wrap items-center gap-1.5">
+            <button
+              type="button"
+              aria-label="Previous month"
+              onClick={() => setVisibleMonth(addMonths(visibleMonth, -1))}
+              className="grid h-[34px] w-[34px] place-items-center rounded-[9px] border border-[#dfe8e0] bg-white text-forest transition hover:border-[#b8d8c6]"
+            >
+              <ChevronLeft className="h-4 w-4" aria-hidden="true" />
+            </button>
+            <span
+              className="min-w-[142px] text-center text-[12px] font-bold text-ink"
+              aria-live="polite"
+            >
+              {formatMonthYear(visibleMonth)}
+            </span>
+            <button
+              type="button"
+              aria-label="Next month"
+              disabled={visibleMonth >= currentMonth}
+              onClick={() => setVisibleMonth(addMonths(visibleMonth, 1))}
+              className="grid h-[34px] w-[34px] place-items-center rounded-[9px] border border-[#dfe8e0] bg-white text-forest transition hover:border-[#b8d8c6] disabled:cursor-not-allowed disabled:opacity-30"
+            >
+              <ChevronRight className="h-4 w-4" aria-hidden="true" />
+            </button>
+            {visibleMonth !== currentMonth && (
+              <Button size="small" onClick={() => setVisibleMonth(currentMonth)}>
+                This month
+              </Button>
+            )}
+          </div>
         </div>
-        <div className="mt-4 grid grid-cols-4 gap-2.5 sm:grid-cols-7">
-          {lastFourteen.map((date) => {
+
+        <div className="mt-4 grid grid-cols-7 gap-2.5">
+          {["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].map((label) => (
+            <div
+              key={label}
+              className="pb-1 text-center text-[9px] font-bold uppercase tracking-[0.08em] text-[#a3aea7]"
+              aria-hidden="true"
+            >
+              {label}
+            </div>
+          ))}
+          {monthCells.map((date, index) => {
+            if (date == null) {
+              return (
+                <div
+                  key={`blank-${visibleMonth}-${index}`}
+                  className="day-cell day-cell-blank"
+                  aria-hidden="true"
+                />
+              );
+            }
             const checked = loggedMealCount(
               snapshot.meals,
               date,
@@ -297,7 +382,9 @@ export function DailyJournalPage() {
             );
             const hasWeight = snapshot.weighIns.some((entry) => entry.date === date);
             const dayOffPlan = offPlanStatusForDate(snapshot.offPlanDays, date);
+            const dayFasting = isFastingDay(snapshot.fastingDays, date);
             const isToday = date === today;
+            const isFuture = date > today;
             return (
               <button
                 key={date}
@@ -306,8 +393,10 @@ export function DailyJournalPage() {
                 data-level={levelFor(checked)}
                 data-active={selected === date}
                 data-today={isToday}
-                data-offplan={dayOffPlan === "off"}
-                aria-label={`${formatShortDate(date)}${isToday ? " (today)" : ""}: ${checked} of ${mealCount} meals logged${hasWeight ? ", weight recorded" : ""}${dayOffPlan === "off" ? ", off-plan meal" : ""}`}
+                data-fasting={dayFasting}
+                data-offplan={!dayFasting && dayOffPlan === "off"}
+                disabled={isFuture}
+                aria-label={`${formatShortDate(date)}${isToday ? " (today)" : ""}: ${dayFasting ? "fasting day, no meals expected" : `${checked} of ${mealCount} meals logged`}${hasWeight ? ", weight recorded" : ""}${!dayFasting && dayOffPlan === "off" ? ", off-plan meal" : ""}`}
                 aria-current={selected === date ? "date" : undefined}
                 onClick={() => selectDate(date)}
               >
@@ -318,14 +407,21 @@ export function DailyJournalPage() {
                   {Number(date.slice(8, 10))}
                 </span>
                 <span className="day-cell-meta">
-                  <span className="day-cell-count">{checked}/{mealCount}</span>
+                  {dayFasting ? (
+                    <span className="day-cell-count inline-flex items-center gap-1">
+                      <Moon className="h-3 w-3" aria-hidden="true" />
+                      Fast
+                    </span>
+                  ) : (
+                    <span className="day-cell-count">{checked}/{mealCount}</span>
+                  )}
                   {hasWeight && (
                     <Scale
                       className="h-3 w-3 text-[#78998a]"
                       aria-hidden="true"
                     />
                   )}
-                  {dayOffPlan === "off" && (
+                  {!dayFasting && dayOffPlan === "off" && (
                     <span className="day-cell-offplan" aria-hidden="true" />
                   )}
                 </span>
@@ -347,6 +443,10 @@ export function DailyJournalPage() {
           <span className="day-legend-item">
             <span className="day-legend-swatch" data-level="none" aria-hidden="true" />
             No meals logged
+          </span>
+          <span className="day-legend-item text-[#6f6099]">
+            <span className="day-legend-swatch" data-level="fasting" aria-hidden="true" />
+            Fasting
           </span>
           <span className="day-legend-item">
             <Scale className="h-3 w-3 text-[#78998a]" aria-hidden="true" />

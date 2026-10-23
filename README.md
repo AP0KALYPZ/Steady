@@ -18,7 +18,7 @@ A private, offline-first weight-loss studio for Windows and macOS.
 
 ![STEADY overview — daily metrics, weight journey, meal check-in, goal progress, and consistency calendar](docs/screenshots/overview.png)
 
-STEADY is a desktop weight-loss tracker built around a simple carnivore routine. Choose one to six daily meals, save the recipes you actually eat, check each serving off in a tap, and record whether the day included an off-plan meal. No feeds, no accounts, no cloud.
+STEADY is a desktop weight-loss tracker built around a simple carnivore routine. Choose one to six daily meals, save the recipes you actually eat, check each serving off in a tap, record an off-plan meal, or mark an intentional fasting day. No feeds, no accounts, no cloud.
 
 > Screenshots show an optional demo profile. The installed app starts empty and never seeds fabricated history.
 
@@ -64,8 +64,8 @@ A local SQLite database, plain CSV export, and validated JSON backups with nativ
 <table>
 <tr>
 <td width="50%" valign="top">
-<img src="docs/screenshots/journal.png" alt="Daily journal with meal check-ins, weigh-in, note, and color-coded 14-day calendar" />
-<p align="center"><sub><strong>Daily journal</strong> — meals, off-plan status, weigh-in, notes, and a readable 14-day history.</sub></p>
+<img src="docs/screenshots/journal.png" alt="Daily journal with meal check-ins, weigh-in, note, and color-coded calendar" />
+<p align="center"><sub><strong>Daily journal</strong> — meals, fasting and off-plan status, weigh-in, notes, and a browsable month calendar.</sub></p>
 </td>
 <td width="50%" valign="top">
 <img src="docs/screenshots/meal-routine.png" alt="Meal routine with a 1–6 meals-per-day selector and three individual recipes" />
@@ -89,11 +89,12 @@ A local SQLite database, plain CSV export, and validated JSON backups with nativ
 ### Overview
 - Four transparent KPIs: current weight, 30-day change, weekly trend, and 7-day meal tracking.
 - A 30/60/90-day weight chart with raw weigh-ins, a seven-calendar-day rolling average, and an accessible summary.
-- One-tap check-ins for every daily meal and an independent **No / Yes** off-plan control. Neither is preselected.
-- Goal destination with clamped progress, a four-week Monday–Sunday consistency calendar, and calm at-a-glance insights.
+- One-tap check-ins for every daily meal, an independent **No / Yes** off-plan control, and a distinct fasting-day toggle. Nothing is preselected.
+- Goal destination with clamped progress, a four-week Monday–Sunday consistency calendar with a lavender fasting color, and calm at-a-glance insights.
 
 ### Daily journal
-- Date navigation with future dates blocked, plus a color-coded 14-day strip.
+- Date navigation with future dates blocked, plus a full Monday–Sunday month calendar that can be browsed back through any previous month.
+- A unique lavender fasting state on the calendar and a fasting control that pauses meal check-ins for that day. Fasting is stored separately from off-plan status.
 - Every scheduled meal with logged-at times, editable off-plan status, an optional weigh-in, and a persistent daily note.
 - Historical edits immediately recalculate every related chart and statistic.
 
@@ -110,6 +111,7 @@ A local SQLite database, plain CSV export, and validated JSON backups with nativ
 
 ### Insights
 - 7- and 30-day meal logging with visible numerators and denominators.
+- 30-day fasting count with the all-time number of intentionally recorded fasting days.
 - Off-plan count with the number of days that actually have a status.
 - 30-day weigh-in count, seven-day average comparison with a minimum-data rule, and goal completion.
 - Four rolling seven-day meal-log bars, plus context about normal weight fluctuation and unlogged days.
@@ -133,6 +135,7 @@ These rules live in pure functions under [`src/lib/analytics`](src/lib/analytics
 - **Goal progress** is `(start − current) / (start − goal)`, clamped to 0–100%, and only shown with valid start, goal, and current values. The goal must be below the starting weight.
 - **Meal tracking** uses your current scheduled meal count only on days with at least one explicit meal record. Unlogged days are excluded, never treated as missed meals or cheating. Percentages always have a visible numerator and denominator.
 - **Off-plan** is a separate explicit status. Absence of a status is never counted as on-plan.
+- **Fasting** is its own explicit calendar status. It is counted independently of off-plan days and is never inferred from a missing meal record.
 - **No projected goal date** is shown; short-term scale noise makes one untrustworthy.
 - Weights are never fabricated, interpolated, or treated as zero.
 
@@ -234,7 +237,7 @@ Deliberate departures from the browser prototype:
 - **No demo dataset is seeded.** First-run setup collects units, starting weight, goal, meal count, and the recurring recipe. Empty states are real. The browser design preview uses browser storage only and is never part of the packaged app.
 - **SQLite replaces localStorage** as the canonical datastore, with schema migrations and typed repositories.
 - **Recharts** renders the weight charts, with custom tokens, tooltips, empty states, and screen-reader summaries.
-- **Off-plan is a three-state model** (absent, on-plan, off-plan), and meal denominators only include days with an explicit meal record.
+- **Off-plan is a three-state model** (absent, on-plan, off-plan), fasting days are a separate explicit status, and meal denominators only include days with an explicit meal record.
 - **Meal count is configurable** from 1 to 6, with shared or individual recipes per meal.
 - **Accessible additions** include visible focus rings, keyboard-trapped dialogs, focus restoration, chart summaries, non-color calendar labels, reduced-motion support, and inline validation.
 - **Exports use native dialogs** through the Tauri dialog plugin and narrowly scoped Rust file commands, rather than browser downloads.

@@ -1,6 +1,13 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { fireEvent, screen, within, waitFor } from "@testing-library/react";
-import { addDays, todayKey } from "../src/lib/dates";
+import {
+  addDays,
+  addMonths,
+  formatMonthYear,
+  formatShortDate,
+  monthKey,
+  todayKey,
+} from "../src/lib/dates";
 import { toKilograms } from "../src/lib/units";
 import { createDefaultSnapshot } from "../src/types";
 import { makeSnapshot, meal, weighIn } from "./fixtures";
@@ -153,6 +160,60 @@ describe("daily tracking", () => {
     expect(notes).toHaveLength(1);
     expect(notes[0].date).toBe(yesterday);
     expect(window.location.hash).toContain(`date=${yesterday}`);
+  });
+
+  it("browses whole calendar months and records a fasting day", async () => {
+    const { user, repo } = renderApp(makeSnapshot(), "/journal");
+    await screen.findByRole("heading", { name: "Daily journal" });
+
+    const currentMonth = monthKey(today);
+    const previousMonth = addMonths(currentMonth, -1);
+    expect(screen.getByText(formatMonthYear(currentMonth))).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Previous month" }));
+    expect(screen.getByText(formatMonthYear(previousMonth))).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Previous month" }));
+    expect(
+      screen.getByText(formatMonthYear(addMonths(currentMonth, -2))),
+    ).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "This month" }));
+
+    await user.click(
+      screen.getByRole("button", { name: "Mark as a fasting day" }),
+    );
+    await screen.findByText("Fasting day recorded. No meals expected today.");
+    expect((await repo.load()).fastingDays).toEqual([today]);
+    expect(screen.getByText("No meals expected today")).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", {
+        name: new RegExp(`${formatShortDate(today)}.*fasting day`, "i"),
+      }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: /Log meal 1/i }),
+    ).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Clear fasting day" }));
+    await screen.findByText("Fasting day cleared — meals are available again.");
+    expect((await repo.load()).fastingDays).toEqual([]);
+    expect(
+      screen.getByRole("button", { name: /Log meal 1/i }),
+    ).toBeInTheDocument();
+  });
+
+  it("shows a fasting day instead of meal check-ins on the dashboard", async () => {
+    renderApp(makeSnapshot({ fastingDays: [today] }));
+    await openOverview();
+
+    expect(
+      screen.getByText(/No meals are expected today/i),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Clear fasting day" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: /Meal 1: not logged/i }),
+    ).not.toBeInTheDocument();
   });
 
   it("adapts every page when the daily meal count changes", async () => {

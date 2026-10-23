@@ -2,9 +2,11 @@ import { describe, expect, it } from "vitest";
 import {
   buildConsistencyHeatmap,
   buildWeeklyBlocks,
+  isFastingDay,
   loggedMealCount,
   mealLogForSlot,
   offPlanStatusForDate,
+  summarizeFasting,
   summarizeMeals,
   summarizeOffPlan,
 } from "../src/lib/analytics/meals";
@@ -90,12 +92,22 @@ describe("meal logging analytics", () => {
     });
   });
 
+  it("counts unique fasting days inside the requested window", () => {
+    const fasts = ["2026-10-20", "2026-10-20", "2026-10-22", "2026-09-01"];
+    expect(summarizeFasting(fasts, "2026-10-22", 7)).toBe(2);
+    expect(summarizeFasting(fasts, "2026-10-22", 1)).toBe(1);
+    expect(summarizeFasting([], "2026-10-22", 30)).toBe(0);
+    expect(isFastingDay(fasts, "2026-10-22")).toBe(true);
+    expect(isFastingDay(fasts, "2026-10-21")).toBe(false);
+  });
+
   it("aligns the four-week heatmap Monday through Sunday", () => {
     const cells = buildConsistencyHeatmap(
       [meal("2026-10-22", 1), meal("2026-10-22", 2), meal("2026-10-21", 2)],
       [offPlan("2026-10-22", "off")],
       "2026-10-22",
       2,
+      ["2026-10-20"],
     );
     expect(cells).toHaveLength(28);
     expect(cells[0].date).toBe("2026-09-28");
@@ -109,6 +121,11 @@ describe("meal logging analytics", () => {
 
     const yesterday = cells.find((cell) => cell.date === "2026-10-21");
     expect(yesterday?.level).toBe("partial");
+    expect(yesterday?.isFasting).toBe(false);
+
+    const fast = cells.find((cell) => cell.date === "2026-10-20");
+    expect(fast?.isFasting).toBe(true);
+    expect(fast?.level).toBe("none");
 
     expect(cells.find((cell) => cell.date === "2026-10-23")?.isFuture).toBe(
       true,

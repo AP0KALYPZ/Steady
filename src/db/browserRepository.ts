@@ -23,6 +23,7 @@ function clone(snapshot: AppSnapshot): AppSnapshot {
     meals: snapshot.meals.map((entry) => ({ ...entry })),
     templates: snapshot.templates.map((entry) => ({ ...entry })),
     offPlanDays: snapshot.offPlanDays.map((entry) => ({ ...entry })),
+    fastingDays: [...snapshot.fastingDays],
     notes: snapshot.notes.map((entry) => ({ ...entry })),
   };
 }
@@ -46,6 +47,7 @@ function normalizeSnapshot(value: unknown): AppSnapshot {
       .filter((entry) => entry.slot >= 1 && entry.slot <= MAX_MEALS_PER_DAY)
       .map((entry) => ({ ...entry })),
     offPlanDays: value.offPlanDays.map((entry) => ({ ...entry })),
+    fastingDays: Array.isArray(value.fastingDays) ? [...value.fastingDays] : [],
     notes: value.notes.map((entry) => ({ ...entry })),
   };
 }
@@ -191,6 +193,14 @@ export class BrowserRepository implements SteadyRepository {
     );
     if (status) this.snapshot.offPlanDays.push({ date, status });
     this.snapshot.offPlanDays.sort((a, b) => a.date.localeCompare(b.date));
+    this.persist();
+  }
+
+  async setFastingDay(date: string, fasting: boolean): Promise<void> {
+    this.snapshot.fastingDays = this.snapshot.fastingDays
+      .filter((entry) => entry !== date)
+      .concat(fasting ? [date] : [])
+      .sort((a, b) => a.localeCompare(b));
     this.persist();
   }
 

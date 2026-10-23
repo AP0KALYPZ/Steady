@@ -13,7 +13,7 @@ describe("CSV export", () => {
   it("exports recorded dates newest first with a full header", () => {
     const lines = buildCsv(snapshot).split("\r\n");
     expect(lines[0]).toBe(
-      '"Date","Weight (lb)","Meal 1 logged","Meal 1 completed at","Meal 2 logged","Meal 2 completed at","Off-plan status","Daily note"',
+      '"Date","Weight (lb)","Meal 1 logged","Meal 1 completed at","Meal 2 logged","Meal 2 completed at","Fasting day","Off-plan status","Daily note"',
     );
     expect(lines).toHaveLength(4);
     expect(lines[1]).toContain('"2026-01-05"');
@@ -25,7 +25,7 @@ describe("CSV export", () => {
     const rows = buildCsv(snapshot).split("\r\n");
     const weightOnly = rows.find((row) => row.startsWith('"2026-01-02"'));
     expect(weightOnly).toBe(
-      '"2026-01-02","180.0","","","","","not recorded",""',
+      '"2026-01-02","180.0","","","","","","not recorded",""',
     );
     const mealDay = rows.find((row) => row.startsWith('"2026-01-03"'));
     expect(mealDay).toContain('"no","","yes"');
@@ -74,6 +74,16 @@ describe("CSV export", () => {
     expect(rows[0]).toContain('"Meal 3 logged","Meal 3 completed at"');
     expect(rows[1]).toContain(
       '"yes","2026-01-05T12:00:00.000Z","no","","yes"',
+    );
+  });
+
+  it("exports fasting days even when no meals were logged", () => {
+    const fasting = buildCsv(
+      makeSnapshot({ fastingDays: ["2026-01-04"] }),
+    ).split("\r\n");
+    expect(fasting).toHaveLength(2);
+    expect(fasting[1]).toBe(
+      '"2026-01-04","","","","","","yes","not recorded",""',
     );
   });
 

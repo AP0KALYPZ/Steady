@@ -131,6 +131,16 @@ export const MIGRATIONS: Migration[] = [
       `ALTER TABLE settings_v2 RENAME TO settings`,
     ],
   },
+  {
+    version: 3,
+    name: "fasting-days",
+    statements: [
+      `CREATE TABLE IF NOT EXISTS fasting_days (
+        date TEXT PRIMARY KEY CHECK (length(date) = 10),
+        updated_at TEXT NOT NULL
+      )`,
+    ],
+  },
 ];
 
 export async function migrate(driver: SqlDriver): Promise<number> {

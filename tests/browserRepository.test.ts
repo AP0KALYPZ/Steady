@@ -35,6 +35,7 @@ describe("browser preview repository", () => {
     await repo.upsertWeighIn("2026-01-01", 88.2);
     await repo.setMealLogged("2026-01-01", 1, true);
     await repo.setOffPlan("2026-01-01", "off");
+    await repo.setFastingDay("2026-01-02", true);
     await repo.saveNote("2026-01-01", "Note");
 
     const reloaded = new BrowserRepository();
@@ -43,6 +44,7 @@ describe("browser preview repository", () => {
     expect(snapshot.weighIns[0].weightKg).toBe(88.2);
     expect(snapshot.meals[0].name).toBe("Beef");
     expect(snapshot.offPlanDays[0].status).toBe("off");
+    expect(snapshot.fastingDays).toEqual(["2026-01-02"]);
     expect(snapshot.notes[0].body).toBe("Note");
   });
 
@@ -125,6 +127,7 @@ describe("browser preview repository", () => {
 
     await repo.upsertWeighIn("2026-01-01", 80);
     await repo.setOffPlan("2026-01-01", "on");
+    await repo.setFastingDay("2026-01-02", true);
     await repo.replaceAll(
       makeSnapshot({
         weighIns: [weighIn("2026-02-01", 180)],
@@ -134,6 +137,8 @@ describe("browser preview repository", () => {
     const imported = await repo.load();
     expect(imported.weighIns[0].date).toBe("2026-02-01");
     await repo.resetAll();
-    expect((await repo.load()).weighIns).toEqual([]);
+    const reset = await repo.load();
+    expect(reset.weighIns).toEqual([]);
+    expect(reset.fastingDays).toEqual([]);
   });
 });

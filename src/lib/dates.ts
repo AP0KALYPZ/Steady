@@ -84,6 +84,42 @@ export function windowKeys(endKey: string, days: number): string[] {
   return keys;
 }
 
+/** `YYYY-MM` key for a calendar day or month. */
+export function monthKey(key: string): string {
+  return key.slice(0, 7);
+}
+
+/** Move a `YYYY-MM` key by whole months. */
+export function addMonths(key: string, months: number): string {
+  if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(key)) {
+    throw new Error(`Invalid calendar month: ${key}`);
+  }
+  const [year, month] = key.split("-").map(Number);
+  const date = new Date(year, month - 1, 1, 12);
+  date.setMonth(date.getMonth() + months);
+  return `${date.getFullYear()}-${pad2(date.getMonth() + 1)}`;
+}
+
+/** Monday–Sunday grid for a month, padded with empty leading/trailing cells. */
+export function monthGridKeys(key: string): (string | null)[] {
+  if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(key)) {
+    throw new Error(`Invalid calendar month: ${key}`);
+  }
+  const first = `${key}-01`;
+  if (!isValidDateKey(first)) {
+    throw new Error(`Invalid calendar month: ${key}`);
+  }
+  const date = parseDateKey(first);
+  const daysInMonth = new Date(date.getFullYear(), date.getMonth() + 1, 0).getDate();
+  const leading = (date.getDay() + 6) % 7;
+  const cells: (string | null)[] = Array(leading).fill(null);
+  for (let day = 1; day <= daysInMonth; day += 1) {
+    cells.push(`${key}-${pad2(day)}`);
+  }
+  while (cells.length % 7 !== 0) cells.push(null);
+  return cells;
+}
+
 /** Monday that begins the ISO-style week containing `key`. */
 export function startOfMondayWeek(key: string): string {
   const date = parseDateKey(key);
@@ -116,6 +152,11 @@ const historyFormatter = new Intl.DateTimeFormat("en-US", {
 });
 
 const weekdayFormatter = new Intl.DateTimeFormat("en-US", { weekday: "short" });
+
+const monthFormatter = new Intl.DateTimeFormat("en-US", {
+  month: "long",
+  year: "numeric",
+});
 
 const longFormatter = new Intl.DateTimeFormat("en-US", {
   weekday: "long",
@@ -153,6 +194,14 @@ export function formatHistoryDate(key: string): string {
 /** e.g. "Thu". */
 export function formatWeekday(key: string): string {
   return weekdayFormatter.format(parseDateKey(key));
+}
+
+/** e.g. "October 2026". */
+export function formatMonthYear(key: string): string {
+  if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(key)) {
+    throw new Error(`Invalid calendar month: ${key}`);
+  }
+  return monthFormatter.format(parseDateKey(`${key}-01`));
 }
 
 /** e.g. "Thursday, October 22". */

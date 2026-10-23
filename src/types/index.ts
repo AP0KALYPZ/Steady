@@ -84,6 +84,8 @@ export interface AppSnapshot {
   meals: MealLog[];
   templates: MealTemplate[];
   offPlanDays: OffPlanDay[];
+  /** Calendar keys for intentional no-food fasting days. */
+  fastingDays: string[];
   notes: DailyNote[];
 }
 
@@ -114,6 +116,7 @@ export function createDefaultSnapshot(): AppSnapshot {
       fat: null,
     })),
     offPlanDays: [],
+    fastingDays: [],
     notes: [],
   };
 }

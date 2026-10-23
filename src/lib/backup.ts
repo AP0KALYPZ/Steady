@@ -14,7 +14,7 @@ import { isValidDateKey, todayKey } from "./dates";
 import { toKilograms, WEIGHT_MAX_KG } from "./units";
 
 export const BACKUP_FORMAT = "steady-backup";
-export const BACKUP_VERSION = 3;
+export const BACKUP_VERSION = 4;
 export const LEGACY_FORMAT = "steady-v1";
 
 export interface BackupFile {
@@ -45,6 +45,7 @@ export function buildBackup(
       meals: snapshot.meals.map((entry) => ({ ...entry })),
       templates: snapshot.templates.map((template) => ({ ...template })),
       offPlanDays: snapshot.offPlanDays.map((entry) => ({ ...entry })),
+      fastingDays: [...snapshot.fastingDays],
       notes: snapshot.notes.map((entry) => ({ ...entry })),
     },
   };
@@ -350,6 +351,42 @@ function validateOffPlan(
   return result.sort((a, b) => a.date.localeCompare(b.date));
 }
 
+function validateFastingDays(
+  value: unknown,
+  today: string,
+  errors: string[],
+): string[] | null {
+  // Schema version 3 and earlier had no fasting days.
+  if (value == null) return [];
+  if (!Array.isArray(value)) {
+    errors.push("The backup's fasting days are not readable.");
+    return null;
+  }
+  if (value.length > 100_000) {
+    errors.push("The backup contains too many fasting days to import.");
+    return null;
+  }
+  const seen = new Set<string>();
+  const result: string[] = [];
+  for (const item of value) {
+    if (typeof item !== "string" || !isValidDateKey(item)) {
+      errors.push("A fasting day has an invalid calendar date.");
+      return null;
+    }
+    if (item > today) {
+      errors.push(`Fasting day ${item} is in the future.`);
+      return null;
+    }
+    if (seen.has(item)) {
+      errors.push(`Duplicate fasting day for ${item}.`);
+      return null;
+    }
+    seen.add(item);
+    result.push(item);
+  }
+  return result.sort((a, b) => a.localeCompare(b));
+}
+
 function validateNotes(
   value: unknown,
   today: string,
@@ -450,6 +487,7 @@ export function parseBackup(
   const weighIns = validateWeighIns(data.weighIns, today, errors);
   const meals = validateMeals(data.meals, today, errors);
   const offPlanDays = validateOffPlan(data.offPlanDays, today, errors);
+  const fastingDays = validateFastingDays(data.fastingDays, today, errors);
   const notes = validateNotes(data.notes, today, errors);
 
   if (
@@ -458,6 +496,7 @@ export function parseBackup(
     !weighIns ||
     !meals ||
     !offPlanDays ||
+    !fastingDays ||
     !notes
   ) {
     return {
@@ -482,6 +521,7 @@ export function parseBackup(
       weighIns,
       meals,
       offPlanDays,
+      fastingDays,
       notes,
     },
   };
@@ -651,6 +691,7 @@ function convertLegacyBackup(
       weighIns,
       meals,
       offPlanDays,
+      fastingDays: [],
       notes,
     },
   };

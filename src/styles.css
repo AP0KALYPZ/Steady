@@ -316,6 +316,11 @@
     border-color: #efd4a6;
   }
 
+  .heat-cell[data-fasting="true"] {
+    background: #e9e2f8;
+    border-color: #d3c8ef;
+  }
+
   .heat-cell[data-selected="true"] {
     outline: 2px solid #147151;
     outline-offset: 1px;
@@ -415,9 +420,29 @@
     background: #fbfcfb;
   }
 
+  .day-cell[data-fasting="true"] {
+    background: #f0ebfa;
+    border-color: #d9cff0;
+  }
+
+  .day-cell:disabled {
+    cursor: not-allowed;
+    opacity: 0.3;
+  }
+
+  .day-cell-blank {
+    border-color: transparent;
+    background: transparent;
+    pointer-events: none;
+  }
+
   .day-cell[data-active="true"] {
     outline: 2px solid #147151;
     outline-offset: 1px;
+  }
+
+  .day-cell[data-active="true"][data-fasting="true"] {
+    outline-color: #67569e;
   }
 
   .day-cell-weekday {
@@ -446,6 +471,14 @@
     color: #60736a;
   }
 
+  .day-cell[data-fasting="true"] .day-cell-weekday {
+    color: #7566a1;
+  }
+
+  .day-cell[data-fasting="true"] .day-cell-number {
+    color: #57478c;
+  }
+
   .day-cell-meta {
     @apply flex min-h-[16px] items-center justify-center gap-1.5 text-[10px] font-bold;
     color: #5f7d6d;
@@ -458,6 +491,10 @@
 
   .day-cell[data-level="partial"] .day-cell-count {
     color: #8a6324;
+  }
+
+  .day-cell[data-fasting="true"] .day-cell-count {
+    color: #5b4b91;
   }
 
   .day-cell-offplan {
@@ -495,6 +532,11 @@
   .day-legend-swatch[data-level="none"] {
     background: #fff;
     border-color: #dfe8e0;
+  }
+
+  .day-legend-swatch[data-level="fasting"] {
+    background: #e9e2f8;
+    border-color: #cdbfe9;
   }
 
   .week-letter {

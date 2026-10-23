@@ -1,4 +1,4 @@
-import { Scale, Target, Utensils } from "lucide-react";
+import { Moon, Scale, Target, Utensils } from "lucide-react";
 import { useSnapshot } from "../hooks/useAppData";
 import { useToday } from "../hooks/useToday";
 import { PageHeader } from "../components/layout/PageHeader";
@@ -11,6 +11,7 @@ import {
 } from "../lib/analytics/weights";
 import {
   buildWeeklyBlocks,
+  summarizeFasting,
   summarizeMeals,
   summarizeOffPlan,
 } from "../lib/analytics/meals";
@@ -26,6 +27,8 @@ export function InsightsPage() {
   const meal7 = summarizeMeals(snapshot.meals, today, 7, mealCount);
   const meal30 = summarizeMeals(snapshot.meals, today, 30, mealCount);
   const offPlan = summarizeOffPlan(snapshot.offPlanDays, today, 30);
+  const fasting30 = summarizeFasting(snapshot.fastingDays, today, 30);
+  const fastingTotal = new Set(snapshot.fastingDays).size;
   const weighInCount = countWeighInsInWindow(snapshot.weighIns, today, 30);
   const week = compareWeeks(snapshot.weighIns, today);
   const latest = latestWeighIn(snapshot.weighIns);
@@ -60,6 +63,14 @@ export function InsightsPage() {
         offPlan.recordedDays > 0
           ? `${offPlan.recordedDays} of the last 30 days have an explicit on/off-plan status`
           : "No explicit off-plan status recorded in the last 30 days",
+    },
+    {
+      label: "Fasting days · 30D",
+      value: String(fasting30),
+      description:
+        fastingTotal > 0
+          ? `${fastingTotal} fasting ${fastingTotal === 1 ? "day" : "days"} recorded in total`
+          : "No fasting days recorded yet",
     },
     {
       label: "Weigh-ins · 30D",
@@ -157,6 +168,21 @@ export function InsightsPage() {
                 Meal percentages use only days where you entered a meal record,
                 measured against your current {mealCount}-meal daily plan. They
                 measure logging, not whether you met a nutritional goal.
+              </span>
+            </div>
+          </div>
+
+          <div className="mt-[18px] flex items-start gap-3">
+            <div className="grid h-[34px] w-[34px] shrink-0 place-items-center rounded-[10px] bg-[#eee9f9] text-[#5b4b91]" aria-hidden="true">
+              <Moon className="h-4 w-4" />
+            </div>
+            <div>
+              <strong className="block text-[12px] font-bold leading-snug text-ink">
+                Fasting is its own pattern
+              </strong>
+              <span className="mt-1 block text-[10px] leading-relaxed text-[#8e9d93]">
+                A fasting day is a recorded choice, not a missed meal. It is
+                counted separately from off-plan days and meal logging.
               </span>
             </div>
           </div>

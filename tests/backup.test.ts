@@ -15,6 +15,7 @@ function snapshot() {
     weighIns: [weighIn("2026-10-20", 180), weighIn("2026-10-21", 179.4)],
     meals: [meal("2026-10-21", 1), meal("2026-10-21", 2)],
     offPlanDays: [offPlan("2026-10-21", "off")],
+    fastingDays: ["2026-10-19"],
     notes: [note("2026-10-21", "Energy steady.")],
   });
 }
@@ -39,6 +40,7 @@ describe("JSON backups", () => {
     expect(result.snapshot.templates).toHaveLength(6);
     expect(result.snapshot.weighIns).toHaveLength(2);
     expect(result.snapshot.meals[0].name).toBe("Beef plate");
+    expect(result.snapshot.fastingDays).toEqual(["2026-10-19"]);
     expect(result.snapshot.notes[0].body).toBe("Energy steady.");
   });
 
@@ -62,10 +64,12 @@ describe("JSON backups", () => {
     backup.version = 2;
     delete (backup.data.settings as unknown as Record<string, unknown>)
       .mealsPerDay;
+    delete (backup.data as unknown as Record<string, unknown>).fastingDays;
     const result = parseBackup(JSON.stringify(backup), TODAY);
     expect(result.ok).toBe(true);
     if (!result.ok) return;
     expect(result.snapshot.settings.mealsPerDay).toBe(2);
+    expect(result.snapshot.fastingDays).toEqual([]);
     expect(result.snapshot.templates).toHaveLength(6);
   });
 
@@ -107,6 +111,16 @@ describe("JSON backups", () => {
       data.notes.push({ date: "2026-12-01", body: "later" });
     });
     expect(futureNote.ok).toBe(false);
+
+    const futureFast = mutate((data) => {
+      data.fastingDays.push("2026-12-01");
+    });
+    expect(futureFast.ok).toBe(false);
+
+    const duplicateFast = mutate((data) => {
+      data.fastingDays.push(data.fastingDays[0]);
+    });
+    expect(duplicateFast.ok).toBe(false);
 
     const duplicate = mutate((data) => {
       data.weighIns.push({ ...data.weighIns[0] });
@@ -212,6 +226,7 @@ describe("JSON backups", () => {
     expect(result.snapshot.offPlanDays).toEqual([
       { date: "2026-01-01", status: "off" },
     ]);
+    expect(result.snapshot.fastingDays).toEqual([]);
     expect(result.snapshot.notes).toHaveLength(1);
     expect(result.snapshot.templates[0].protein).toBe(50);
     expect(result.snapshot.templates[0].calories).toBeNull();
