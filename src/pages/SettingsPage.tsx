@@ -26,6 +26,7 @@ import {
 import { parseBackup } from "../lib/backup";
 import { openTextFile } from "../lib/fileIO";
 import { appVersion } from "../lib/platform";
+import { CURRENT_SCHEMA_VERSION } from "../db/migrations";
 
 interface ImportIssue {
   file: string;
@@ -228,6 +229,7 @@ export function SettingsPage() {
     snapshot.weighIns.length +
     snapshot.meals.length +
     snapshot.offPlanDays.length +
+    snapshot.fastingDays.length +
     snapshot.notes.length;
 
   return (
@@ -386,7 +388,9 @@ export function SettingsPage() {
                 <ShieldCheck className="h-3.5 w-3.5" aria-hidden="true" />
                 Private by design · fully offline
               </span>
-              <span>STEADY {appVersion()} · schema 2</span>
+              <span>
+                STEADY {appVersion()} · schema {CURRENT_SCHEMA_VERSION}
+              </span>
             </div>
           </div>
         </section>

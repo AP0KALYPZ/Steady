@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="src-tauri/icons/128x128@2x.png" width="96" alt="STEADY app icon" />
+<img src="src-tauri/icons/128x128@2x.png" width="92" alt="STEADY app icon" />
 
 # STEADY
 
@@ -11,18 +11,77 @@ A private, offline-first weight-loss studio for Windows and macOS.
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS-18302B?style=flat-square)](#install)
 [![Tauri](https://img.shields.io/badge/Tauri-2-24C8DB?style=flat-square&logo=tauri&logoColor=white)](https://tauri.app)
 [![React](https://img.shields.io/badge/React-19-61DAFB?style=flat-square&logo=react&logoColor=18302B)](https://react.dev)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5.9-3178C6?style=flat-square&logo=typescript&logoColor=white)](https://www.typescriptlang.org)
 [![SQLite](https://img.shields.io/badge/SQLite-local-003B57?style=flat-square&logo=sqlite&logoColor=white)](#privacy-by-design)
 [![Offline](https://img.shields.io/badge/offline--first-146B54?style=flat-square)](#privacy-by-design)
 
+[Screens](#screens) · [Fasting days](#fasting-days) · [How the numbers work](#how-the-numbers-work) · [Install](#install) · [Development](#development)
+
 </div>
 
-![STEADY overview — daily metrics, weight journey, meal check-in, goal progress, and consistency calendar](docs/screenshots/overview.png)
+![STEADY overview — daily metrics, weight journey, meal check-in, and a color-coded consistency calendar](docs/screenshots/overview.png)
 
-STEADY is a desktop weight-loss tracker built around a simple carnivore routine. Choose one to six daily meals, save the recipes you actually eat, check each serving off in a tap, record an off-plan meal, or mark an intentional fasting day. No feeds, no accounts, no cloud.
+STEADY is a desktop weight-loss tracker built around a simple carnivore routine. Choose one to six daily meals, save the recipes you actually eat, and check each serving off with a click. Record an off-plan meal when the day calls for it, or mark an intentional fasting day. Your weigh-ins, notes, and history stay in a local SQLite database on your device.
 
-> Screenshots show an optional demo profile. The installed app starts empty and never seeds fabricated history.
+There are no feeds, accounts, streaks, scores, or cloud services. Just a calm record of what happened, and honest trends built from it.
 
-## Designed to stay out of your way
+> **About the screenshots:** they use a representative demo profile. The installed app starts empty and never seeds fabricated history.
+
+## Screens
+
+### Daily journal
+
+Every scheduled meal, the fasting control, off-plan status, optional weigh-in, and a persistent daily note — all in one place. The full month calendar can be browsed back through any previous month.
+
+<p align="center">
+  <img src="docs/screenshots/journal.png" width="92%" alt="Daily journal with fasting control, meal check-ins, weigh-in, note, and a full month calendar with fasting days" />
+</p>
+
+### Meal routine
+
+Choose one to six meals per day. Use one recurring recipe for every serving, or give each meal its own. Nutrition fields are optional and never estimated.
+
+<table>
+<tr>
+<td width="50%" valign="top">
+<img src="docs/screenshots/meal-routine.png" alt="Meal routine with a meals-per-day selector and individual recipes" />
+<p align="center"><sub><strong>Meal routine</strong> — shared or individual recipes, one to six meals.</sub></p>
+</td>
+<td width="50%" valign="top">
+<img src="docs/screenshots/insights.png" alt="Insights with meal logging, fasting days, off-plan days, weight trend, and goal completion" />
+<p align="center"><sub><strong>Insights</strong> — explicit counts, honest denominators, no judgment.</sub></p>
+</td>
+</tr>
+</table>
+
+### Weight progress
+
+Real weigh-ins, a seven-calendar-day rolling average, and a searchable history you can edit or delete.
+
+<p align="center">
+  <img src="docs/screenshots/weight-progress.png" width="88%" alt="Weight progress chart, starting and latest weight, total change, and weigh-in history" />
+</p>
+
+### Settings
+
+Units, starting and goal weights, CSV and JSON exports, validated restores, and a confirmed full reset.
+
+<p align="center">
+  <img src="docs/screenshots/settings.png" width="88%" alt="Settings with goal weights, unit switching, exports, backup import, and local storage status" />
+</p>
+
+## Fasting days
+
+Fasting is a first-class state, not a missing meal.
+
+- Use **Mark fasting** on the overview or daily journal to record a day you intentionally go without food.
+- Meals are paused for that day, so there are no empty check-ins to explain or dismiss.
+- Fasting has its **own lavender calendar color** and a **Fast** label in both the journal month calendar and the overview consistency grid. The label keeps the state clear without relying on color alone.
+- Fasting is counted separately from off-plan days. Neither state is inferred from a missing record.
+- Insights shows fasting days in the last 30 days and the all-time total.
+- Fasting days are stored in their own SQLite table and included in CSV exports and versioned JSON backups.
+
+## A closer look
 
 <table>
 <tr>
@@ -30,7 +89,7 @@ STEADY is a desktop weight-loss tracker built around a simple carnivore routine.
 
 ### One-tap routine
 
-Your daily meals are always one click away. Shared recipe or individual recipes, STEADY adapts every screen to your own schedule.
+Your daily meals are always one click away. Shared recipe or individual recipes, STEADY adapts every screen to your schedule.
 
 </td>
 <td width="50%" valign="top">
@@ -44,11 +103,20 @@ Rolling averages use real calendar days. Missing weigh-ins stay missing. Unlogge
 <tr>
 <td width="50%" valign="top">
 
+### All your months
+
+The journal calendar is a full Monday–Sunday month grid. Move back through previous months without a cutoff, then pick any day to edit.
+
+</td>
+<td width="50%" valign="top">
+
 ### Quiet by default
 
 No notifications, streaks, scores, or moralizing. Just the records you chose to keep, presented clearly.
 
 </td>
+</tr>
+<tr>
 <td width="50%" valign="top">
 
 ### Yours to keep
@@ -56,76 +124,17 @@ No notifications, streaks, scores, or moralizing. Just the records you chose to 
 A local SQLite database, plain CSV export, and validated JSON backups with native file dialogs.
 
 </td>
-</tr>
-</table>
+<td width="50%" valign="top">
 
-## A closer look
+### Yours alone
 
-<table>
-<tr>
-<td width="50%" valign="top">
-<img src="docs/screenshots/journal.png" alt="Daily journal with meal check-ins, weigh-in, note, and color-coded calendar" />
-<p align="center"><sub><strong>Daily journal</strong> — meals, fasting and off-plan status, weigh-in, notes, and a browsable month calendar.</sub></p>
-</td>
-<td width="50%" valign="top">
-<img src="docs/screenshots/meal-routine.png" alt="Meal routine with a 1–6 meals-per-day selector and three individual recipes" />
-<p align="center"><sub><strong>Meal routine</strong> — choose 1–6 meals, then share one recipe or give each meal its own.</sub></p>
-</td>
-</tr>
-<tr>
-<td width="50%" valign="top">
-<img src="docs/screenshots/weight-progress.png" alt="Weight progress chart, starting and latest weight, total change, and weigh-in history" />
-<p align="center"><sub><strong>Weight progress</strong> — real weigh-ins, a seven-day rolling average, and editable history.</sub></p>
-</td>
-<td width="50%" valign="top">
-<img src="docs/screenshots/insights.png" alt="Insights with 7- and 30-day meal logging, off-plan count, weight trend, and weekly bars" />
-<p align="center"><sub><strong>Insights</strong> — explicit numerators, honest denominators, and no projected goal dates.</sub></p>
+No account, telemetry, analytics, advertising, or network dependency. Exports go only where you choose.
+
 </td>
 </tr>
 </table>
 
-## What is included
-
-### Overview
-- Four transparent KPIs: current weight, 30-day change, weekly trend, and 7-day meal tracking.
-- A 30/60/90-day weight chart with raw weigh-ins, a seven-calendar-day rolling average, and an accessible summary.
-- One-tap check-ins for every daily meal, an independent **No / Yes** off-plan control, and a distinct fasting-day toggle. Nothing is preselected.
-- Goal destination with clamped progress, a four-week Monday–Sunday consistency calendar with a lavender fasting color, and calm at-a-glance insights.
-
-### Daily journal
-- Date navigation with future dates blocked, plus a full Monday–Sunday month calendar that can be browsed back through any previous month.
-- A unique lavender fasting state on the calendar and a fasting control that pauses meal check-ins for that day. Fasting is stored separately from off-plan status.
-- Every scheduled meal with logged-at times, editable off-plan status, an optional weigh-in, and a persistent daily note.
-- Historical edits immediately recalculate every related chart and statistic.
-
-### Weight progress
-- 30/60/90/all-time charts with daily weights and the seven-calendar-day rolling average.
-- Searchable, sortable weigh-in history with per-entry editing and confirmed deletion.
-- Starting weight, latest weight, and total change. Missing days are never interpolated.
-
-### Meal routine
-- Choose **1–6 meals per day**. Every check-in, calendar, and analytic follows the selected plan.
-- Use one shared recipe for every serving, or switch it off and create a separate recipe for each meal.
-- Optional per-serving calories, protein, and fat. Nutrition is never estimated.
-- Each logged serving keeps a snapshot of the recipe, so editing a template cannot rewrite history.
-
-### Insights
-- 7- and 30-day meal logging with visible numerators and denominators.
-- 30-day fasting count with the all-time number of intentionally recorded fasting days.
-- Off-plan count with the number of days that actually have a status.
-- 30-day weigh-in count, seven-day average comparison with a minimum-data rule, and goal completion.
-- Four rolling seven-day meal-log bars, plus context about normal weight fluctuation and unlogged days.
-
-### Settings and data ownership
-- Starting weight, goal weight, and lb/kg switching. Weights are stored canonically in kilograms; changing units never mutates recorded measurements.
-- CSV export, versioned JSON full backup, validated JSON restore, and a confirmed full reset.
-- Native save/open dialogs and real file writes. Imports are validated before any write; a failed write restores the previous snapshot.
-
-<p align="center">
-<img src="docs/screenshots/settings.png" width="86%" alt="Settings with goal weights, unit switching, exports, backup import, and local storage status" />
-</p>
-
-## Analytics rules
+## How the numbers work
 
 These rules live in pure functions under [`src/lib/analytics`](src/lib/analytics) and are covered by tests.
 
@@ -141,7 +150,7 @@ These rules live in pure functions under [`src/lib/analytics`](src/lib/analytics
 
 ## Privacy by design
 
-No network requests are made by the application. There is no account, telemetry, analytics, advertising, or cloud dependency. The only external integrations are the operating system’s native file dialogs.
+No network requests are made by the application. There is no account, telemetry, analytics, advertising, or cloud dependency. The only external integrations are the operating system's native file dialogs.
 
 The SQLite database `steady.db` is created by the official Tauri SQL plugin in the platform app-data directory:
 
@@ -153,11 +162,13 @@ The SQLite database `steady.db` is created by the official Tauri SQL plugin in t
 
 Exports and backups are written only to paths you choose. Imported backups are validated in memory before any record is touched. Backups include a schema version; newer schemas are rejected with an actionable message.
 
+The current database schema is version **3**, which includes fasting days. Existing databases upgrade in place through append-only migrations.
+
 ## Install
 
 STEADY ships as a native Tauri app and opens **maximized** by default, with the native title bar kept in place so you can close, move, or resize the window.
 
-Prebuilt installers are produced by [the packaging workflow](.github/workflows/build.yml):
+Prebuilt installers are produced by [the packaging workflow](.github/workflows/build-installers.yml):
 
 1. Open **Actions → Verify and package STEADY → Run workflow**.
 2. Download the artifact for your platform:
@@ -165,7 +176,7 @@ Prebuilt installers are produced by [the packaging workflow](.github/workflows/b
    - `steady-macos-intel` — Intel Mac DMG.
    - `steady-macos-apple-silicon` — Apple Silicon DMG.
 
-The current builds are unsigned. Windows SmartScreen and macOS Gatekeeper will warn on first launch until code signing and notarization credentials are configured. See [CI installers](#ci-installers) for the signing variables.
+The current builds are unsigned. Windows SmartScreen and macOS Gatekeeper will warn on first launch until code signing and notarization credentials are configured.
 
 ### Build it yourself
 
@@ -211,11 +222,25 @@ npm test
 npm run build
 ```
 
-`npm test` runs Vitest with jsdom interaction tests and `node:sqlite` repository tests against the real migrations and SQL statements. Node’s experimental SQLite module is intentionally invoked with `--experimental-sqlite`.
+`npm test` runs Vitest with jsdom interaction tests and `node:sqlite` repository tests against the real migrations and SQL statements. Node's experimental SQLite module is intentionally invoked with `--experimental-sqlite`.
+
+### Regenerate the README screenshots
+
+The screenshots in this README are generated from the running Vite UI with a deterministic demo profile:
+
+```bash
+# Terminal 1
+npm run dev
+
+# Terminal 2
+npm run screenshots
+```
+
+The capture script uses local Chrome at 1440 px wide, removes browser-only preview labels from the frame, and writes the six PNGs to [`docs/screenshots`](docs/screenshots). On macOS it looks for Chrome in the standard Applications path; set `CHROME_PATH` if yours lives elsewhere.
 
 ### CI installers
 
-[`.github/workflows/build.yml`](.github/workflows/build.yml) runs lint, all tests, and the web build on every pull request. On manual runs and `v*` tags it also builds and uploads:
+[`.github/workflows/build-installers.yml`](.github/workflows/build-installers.yml) runs lint, all tests, and the web build on every pull request. On manual runs and `v*` tags it also builds and uploads:
 
 - `steady-windows-x64` — NSIS `.exe` from `windows-latest`.
 - `steady-macos-intel` — `.dmg` from `macos-15-intel` (x86_64).
@@ -228,6 +253,26 @@ Artifacts are retained for 14 days. The workflows require no signing credentials
 
 No installer artifacts are committed to this repository.
 
+## Project layout
+
+```text
+src/
+  components/        layout, overview cards, charts, dialogs, UI primitives
+  pages/             the six sections
+  features/          reusable export hooks
+  hooks/             app data provider and live local date
+  lib/               dates, units, analytics, CSV, backups, file IO
+  db/                schema migrations, SQLite + browser repositories
+  types/             shared typed data model
+tests/               analytics, backup, SQL repository, and UI tests
+scripts/             deterministic README screenshot capture
+docs/screenshots/    README screenshots
+src-tauri/           Tauri 2 Rust shell, capabilities, bundle config, icons
+.github/workflows/   verification and native installer CI
+```
+
+The supplied reference files (`STEADY_CODEX_BUILD_PROMPT.md`, `STEADY_Desktop_UI_UX_Spec.md`, `STEADY_Interactive_Prototype.html`, `dashboard_preview.png`) remain alongside the implementation as design documentation.
+
 ## Design fidelity
 
 The interface follows the supplied `STEADY_Desktop_UI_UX_Spec.md`, `STEADY_Interactive_Prototype.html`, and `dashboard_preview.png`: the 254 px sidebar, `#F5F7F4` canvas, white 18 px-radius cards, `#18302B` ink, forest-green primary actions, compact premium typography, and quiet borders. All six sections are implemented as modular React/TypeScript screens rather than embedding the prototype HTML.
@@ -239,27 +284,9 @@ Deliberate departures from the browser prototype:
 - **Recharts** renders the weight charts, with custom tokens, tooltips, empty states, and screen-reader summaries.
 - **Off-plan is a three-state model** (absent, on-plan, off-plan), fasting days are a separate explicit status, and meal denominators only include days with an explicit meal record.
 - **Meal count is configurable** from 1 to 6, with shared or individual recipes per meal.
+- **The journal calendar is a full month view** with unlimited backward navigation, not a rolling strip.
 - **Accessible additions** include visible focus rings, keyboard-trapped dialogs, focus restoration, chart summaries, non-color calendar labels, reduced-motion support, and inline validation.
 - **Exports use native dialogs** through the Tauri dialog plugin and narrowly scoped Rust file commands, rather than browser downloads.
-
-## Project layout
-
-```
-src/
-  components/        layout, overview cards, charts, dialogs, UI primitives
-  pages/             the six sections
-  features/          reusable export hooks
-  hooks/             app data provider and live local date
-  lib/               dates, units, analytics, CSV, backups, file IO
-  db/                schema migrations, SQLite + browser repositories
-  types/             shared typed data model
-tests/               analytics, backup, SQL repository, and UI tests
-docs/screenshots/    native app screenshots used in this README
-src-tauri/           Tauri 2 Rust shell, capabilities, bundle config, icons
-.github/workflows/   verification and native installer CI
-```
-
-The supplied reference files (`STEADY_CODEX_BUILD_PROMPT.md`, `STEADY_Desktop_UI_UX_Spec.md`, `STEADY_Interactive_Prototype.html`, `dashboard_preview.png`) remain alongside the implementation as design documentation.
 
 <div align="center">
 <br />

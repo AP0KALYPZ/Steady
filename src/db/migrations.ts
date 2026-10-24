@@ -143,6 +143,10 @@ export const MIGRATIONS: Migration[] = [
   },
 ];
 
+/** Latest schema version understood by this build. */
+export const CURRENT_SCHEMA_VERSION =
+  MIGRATIONS[MIGRATIONS.length - 1]?.version ?? 0;
+
 export async function migrate(driver: SqlDriver): Promise<number> {
   const rows = await driver.select<{ user_version: number | string }>(
     "PRAGMA user_version",

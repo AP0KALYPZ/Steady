@@ -17,3 +17,4 @@ src-tauri/*.db
 src-tauri/*.db-shm
 src-tauri/*.db-wal
 *.log
+.screenshot-profile/
